@@ -86,12 +86,14 @@ async function subirAhora() {
   if (!estado?.atletaId) return;
   const marca = new Date().toISOString();
   const desdeCero = !estado.subido;
-  const registros = await registrosDe(estado.atletaId, estado.subido);
+  // Dueño y doctora: se respaldan TODAS las personas de este aparato (no tienen doctora que las vea)
+  const ids = estado.todas ? (await BD.todos('atletas')).map(x => x.id) : [estado.atletaId];
+  const registros = (await Promise.all(ids.map(id => registrosDe(id, estado.subido)))).flat();
   const borrados = leerBorrados();
   const envios = [];
   for (let i = 0; i < registros.length; i += POR_ENVIO) envios.push(registros.slice(i, i + POR_ENVIO));
   if (!envios.length) envios.push([]);
-  const res = await resumen(estado.atletaId);
+  const res = estado.todas ? null : await resumen(estado.atletaId);
   for (let i = 0; i < envios.length; i++) {
     const ultimo = i === envios.length - 1;
     const { error } = await nube.rpc('subir_datos', {
@@ -123,11 +125,12 @@ function alCambiar(tipo, almacen, ids) {
 
 // Empieza a vigilar los cambios de la persona conectada a esta cuenta de clienta.
 // atleta: la persona abierta; si la cuenta aún no tiene persona en este aparato, queda conectada esa.
+// Dueño y doctora: copia de respaldo de todas las personas del aparato (para recuperarlas en otro aparato o dirección).
 export async function activarSeguimiento(cuenta, atleta) {
-  if (cuenta.rol !== 'clienta') return null;
+  const todas = cuenta.rol !== 'clienta';
   const previo = await BD.obtener('ajustes', 'nube');
-  estado = previo?.cuenta === cuenta.cuenta && (await BD.obtener('atletas', previo.atletaId)) ? previo : null;
-  if (!estado && atleta) estado = await BD.guardar('ajustes', { id: 'nube', cuenta: cuenta.cuenta, atletaId: atleta.id, subido: null });
+  estado = previo?.cuenta === cuenta.cuenta && !!previo.todas === todas && (await BD.obtener('atletas', previo.atletaId)) ? previo : null;
+  if (!estado && atleta) estado = await BD.guardar('ajustes', { id: 'nube', cuenta: cuenta.cuenta, atletaId: atleta.id, subido: null, todas });
   if (!estado) return null;
   BD.vigilarCambios(alCambiar);
   subir();
@@ -168,9 +171,8 @@ export async function revisarNovedades() {
 
 // Recuperar mis datos: en un aparato (o una dirección de la app) sin ninguna persona guardada, la clienta baja la copia
 // que su teléfono subió. Lo planificado que no se hizo (menú pendiente, entreno sin empezar) no se baja: la app lo
-// vuelve a armar. Devuelve el atleta recuperado, o null si en la nube no hay nada.
+// vuelve a armar. Dueño y doctora recuperan todas las personas que respaldaron. Devuelve la primera, o null si no hay nada.
 export async function recuperarDeLaNube(cuenta) {
-  if (cuenta.rol !== 'clienta') return null;
   const { data, error } = await nube.rpc('mis_datos').abortSignal(limiteDeEspera(ESPERA_MS));
   if (error) throw error;
   const atleta = data?.atletas?.[0];
@@ -185,7 +187,7 @@ export async function recuperarDeLaNube(cuenta) {
     if (lista.length) await BD.guardarVarios(almacen, lista);
   }
   // Queda conectada a la cuenta: la próxima subida reemplaza la copia de la nube con lo de este aparato
-  await BD.guardar('ajustes', { id: 'nube', cuenta: cuenta.cuenta, atletaId: atleta.id, subido: null });
+  await BD.guardar('ajustes', { id: 'nube', cuenta: cuenta.cuenta, atletaId: atleta.id, subido: null, todas: cuenta.rol !== 'clienta' });
   await BD.guardar('ajustes', { ...((await BD.obtener('ajustes', 'app')) || {}), id: 'app', atletaActual: atleta.id });
   return atleta;
 }

@@ -110,7 +110,7 @@ async function nuevoAtleta() {
 
 function abrir(a) {
   actual = migrar(a);
-  if (cuenta?.rol === 'clienta') Seguimiento.activarSeguimiento(cuenta, a).then(revisarNovedades);
+  if (cuenta) Seguimiento.activarSeguimiento(cuenta, a).then(revisarNovedades);
   if (a.estado === 'evaluado') return mostrarHoy(a);
   if (cuestionarioTerminado(a)) return mostrarPruebas(a);
   mostrarCuestionario(a);
@@ -496,9 +496,9 @@ function puerta() {
       catch (e) { return cambiarPantalla(() => vistaSinConexion(raiz, enPalabras(e), { alListo: comprobar, alSalir: cerrar })); }
       if (!info.acceso) return cambiarPantalla(() => vistaBloqueo(raiz, info, { alListo: comprobar, alSalir: cerrar }));
       cuenta = info;
-      // Aparato o dirección nueva sin ninguna persona: primero se bajan sus datos de la nube. Si no se puede, no se sigue:
+      // Aparato o dirección nueva sin ninguna persona: primero se bajan sus datos de la nube (paciente, doctora o dueño). Si no se puede, no se sigue:
       // empezar en blanco haría que la primera subida borrara la copia buena de la nube.
-      if (info.rol === 'clienta' && !(await BD.todos('atletas')).length) {
+      if (!(await BD.todos('atletas')).length) {
         try {
           if (await Seguimiento.recuperarDeLaNube(info)) aviso('✅ Recuperamos tus datos');
         } catch (e) { return cambiarPantalla(() => vistaSinConexion(raiz, enPalabras(e), { alListo: comprobar, alSalir: cerrar })); }
