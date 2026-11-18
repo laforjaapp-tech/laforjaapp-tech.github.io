@@ -1,0 +1,8 @@
+Lector de texto para las recetas de la nutrióloga (js/ui/lectorReceta.js). Funciona dentro del teléfono, sin internet después de la primera vez.
+
+- tesseract.min.js y worker.min.js: Tesseract.js 6.0.1 (npm tesseract.js, licencia Apache-2.0, ver LICENSE)
+- core/: tesseract.js-core 6.1.2, solo las versiones LSTM (con y sin SIMD), que son las que usa el modo oem 1 (licencia Apache-2.0)
+- lang/spa.traineddata.gz: español "4.0.0_best_int" de @tesseract.js-data/spa 1.0.0 (licencia MIT)
+
+No se precargan en sw.js: se guardan la primera vez que la doctora lee una receta.
+Tesseract.js 7 pide un núcleo 7 (archivos "relaxedsimd") que no está aquí: si se actualiza, actualizar también core/.

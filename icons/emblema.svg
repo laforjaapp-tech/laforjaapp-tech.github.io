@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="60 28 392 424">
+  <!-- Distintivo de LA FORJA (el mismo dibujo del ícono, sin el fondo): martillo y mancuerna cruzados sobre el yunque de fuego -->
+  <defs>
+    <linearGradient id="e-acero" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eef2f5"/><stop offset=".45" stop-color="#8994a0"/><stop offset="1" stop-color="#2a3037"/></linearGradient>
+    <linearGradient id="e-disco" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3a4047"/><stop offset=".35" stop-color="#1c2024"/><stop offset="1" stop-color="#0e1013"/></linearGradient>
+    <linearGradient id="e-fuego" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd166"/><stop offset=".5" stop-color="#ff6a13"/><stop offset="1" stop-color="#e2240f"/></linearGradient>
+    <linearGradient id="e-mango" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5a2f12"/><stop offset=".45" stop-color="#c07c3e"/><stop offset="1" stop-color="#4a250d"/></linearGradient>
+  </defs>
+  <g transform="rotate(-45 256 196)">
+    <rect x="96" y="186" width="250" height="20" rx="10" fill="url(#e-mango)"/>
+    <path d="M338 142 H404 L414 156 V236 L404 250 H338 Z" fill="url(#e-acero)" stroke="#2a3037" stroke-width="3"/>
+    <rect x="338" y="142" width="12" height="108" fill="#fff" opacity=".45"/>
+  </g>
+  <g transform="rotate(45 256 196)">
+    <rect x="150" y="186" width="212" height="20" rx="6" fill="url(#e-acero)" stroke="#2a3037" stroke-width="2"/>
+    <rect x="118" y="132" width="36" height="128" rx="10" fill="url(#e-disco)" stroke="#ff7a1a" stroke-width="4"/>
+    <rect x="88" y="152" width="30" height="88" rx="9" fill="url(#e-disco)" stroke="#ff7a1a" stroke-width="4"/>
+    <rect x="358" y="132" width="36" height="128" rx="10" fill="url(#e-disco)" stroke="#ff7a1a" stroke-width="4"/>
+    <rect x="394" y="152" width="30" height="88" rx="9" fill="url(#e-disco)" stroke="#ff7a1a" stroke-width="4"/>
+  </g>
+  <path d="M96 352 C120 340 146 336 170 335 L420 335 L420 372 L392 372 C372 380 362 394 360 408 L398 422 L398 444 L150 444 L150 422 L188 408 C186 394 176 382 160 376 C134 374 114 368 96 352 Z" fill="url(#e-fuego)"/>
+  <path d="M118 344 C138 338 154 336 170 336 L420 336" fill="none" stroke="#fff2c4" stroke-width="4" stroke-linecap="round" opacity=".8"/>
+</svg>

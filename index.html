@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>LA FORJA</title>
+  <meta name="description" content="Entrenamiento físico mixto personalizado: fuerza, cardio, calistenia, boxeo, movilidad y más.">
+  <meta name="theme-color" content="#F5F8F7">
+  <link rel="preload" href="fonts/barlow-condensed-800i.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/forja.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/forja-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="LA FORJA">
+  <link rel="stylesheet" href="css/estilos.css">
+  <script>/* estilo elegido por la persona, antes de pintar (ver js/ui/temas.js) */ var t = 'salud'; try { if (localStorage.getItem('la-forja-tema-elegido')) t = localStorage.getItem('la-forja-tema') || t; } catch (e) {} if (t !== 'forja') document.documentElement.dataset.tema = t;</script>
+</head>
+<body>
+  <header class="cabecera">
+    <div class="marca"><img src="icons/emblema.svg" alt=""><span>LA FORJA</span></div>
+    <div class="cab-derecha">
+      <span id="cab-atleta"></span>
+      <button type="button" class="btn mini sec" id="cab-cambiar" hidden aria-label="Cambiar atleta"><span aria-hidden="true">👥</span><span class="cab-texto"> Cambiar atleta</span></button>
+      <button type="button" class="btn mini sec" id="cab-cuenta" hidden>👤 Cuenta</button>
+    </div>
+  </header>
+  <nav class="menu" id="nav" hidden aria-label="Secciones">
+    <button type="button" data-ir="hoy"><span aria-hidden="true">🔥</span>Hoy</button>
+    <button type="button" data-ir="plan"><span aria-hidden="true">🔬</span>Mi plan</button>
+    <button type="button" data-ir="comida"><span aria-hidden="true">🥗</span>Comida</button>
+    <button type="button" data-ir="bienestar"><span aria-hidden="true">🧘</span>Bienestar</button>
+    <button type="button" data-ir="biblioteca"><span aria-hidden="true">📚</span>Biblioteca</button>
+    <button type="button" data-ir="progreso"><span aria-hidden="true">📈</span>Progreso</button>
+    <button type="button" data-ir="perfil"><span aria-hidden="true">👤</span>Perfil</button>
+    <button type="button" data-ir="reto"><span aria-hidden="true">🏁</span>Reto</button>
+  </nav>
+  <main id="app" aria-live="polite"><section class="pantalla"><p>Cargando…</p></section></main>
+  <script src="js/vendor/supabase/supabase.js" defer></script>
+  <script type="module" src="js/app.js"></script>
+  <script>
+    // Si la app no arranca en 10 s (copia antigua guardada o programa cerrado), se ofrece actualizar en limpio
+    setTimeout(function () {
+      var m = document.getElementById('app');
+      if (!m || m.dataset.listo) return;
+      m.innerHTML = '<section class="pantalla"><h1>No se pudo abrir LA FORJA</h1>' +
+        '<p class="subtitulo">Puede que tu dispositivo guarde una copia antigua o, en la computadora, que esté cerrado "Abrir LA FORJA". Tus datos no se borran.</p>' +
+        '<div class="navegacion"><button class="btn" id="recargar-limpio">Actualizar y volver a abrir</button></div></section>';
+      document.getElementById('recargar-limpio').onclick = function () {
+        var sw = 'serviceWorker' in navigator ? navigator.serviceWorker.getRegistrations().then(function (l) { return Promise.all(l.map(function (r) { return r.unregister(); })); }) : Promise.resolve();
+        var cc = 'caches' in window ? caches.keys().then(function (k) { return Promise.all(k.map(function (c) { return caches.delete(c); })); }) : Promise.resolve();
+        Promise.all([sw, cc]).then(function () { location.reload(); }, function () { location.reload(); });
+      };
+    }, 10000);
+  </script>
+</body>
+</html>
