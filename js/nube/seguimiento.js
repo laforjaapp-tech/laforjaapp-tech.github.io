@@ -8,6 +8,7 @@ import { novedades } from './acceso.js';
 import { hoyISO, sumarDias, evolucionPeso } from '../motor/calculos.js';
 import { COMIDO } from '../motor/ajusteDiario.js';
 import { totalPasos } from '../motor/pasos.js';
+import { subirAgenda } from './avisos.js';
 
 // Los mismos nombres que acepta la nube (almacenes_seguimiento en supabase/esquema.sql)
 const ALMACENES = ['atletas', 'mediciones', 'evaluaciones', 'retos', 'sesiones', 'retroalimentacion', 'registrosDiarios',
@@ -102,6 +103,8 @@ async function subirAhora() {
     if (error) throw error;
   }
   guardarBorrados(leerBorrados().slice(borrados.length));   // los que llegaron mientras se subía se quedan para la próxima
+  // Avisos con la app cerrada: la agenda de los próximos días con lo ya marcado (si falla, no frena la subida de los datos)
+  await subirAgenda(estado.atletaId).catch(e => console.warn('Agenda:', e));
   estado.subido = marca;
   await BD.guardar('ajustes', estado);
 }

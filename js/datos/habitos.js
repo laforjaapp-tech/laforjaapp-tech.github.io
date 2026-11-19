@@ -422,9 +422,10 @@ export async function configRecordatorios(atletaId) {
 export const guardarConfigRecordatorios = r => BD.guardar('ajustes', r);
 
 export async function estadoRecordatorios(atleta, fecha = hoyISO()) {
-  const [rec, agua, sueno, sups, sesiones, comidas, perfilNut] = await Promise.all([
+  const [rec, agua, sueno, sups, sesiones, comidas, perfilNut, noches] = await Promise.all([
     configRecordatorios(atleta.id), aguaDelDia(atleta, fecha), metaSuenoDe(atleta), suplementos(atleta.id),
     BD.porAtleta('sesiones', atleta.id), comidasEntre(atleta.id, fecha, fecha), uno('nutrition_profiles', atleta.id),
+    BD.porAtleta('sleep_logs', atleta.id),
   ]);
   const sesionHoy = sesiones.find(s => s.fecha === fecha);
   const ultimo = agua.logs[agua.logs.length - 1];
@@ -435,6 +436,10 @@ export async function estadoRecordatorios(atleta, fecha = hoyISO()) {
     entrenoHoy, sesionHecha: !!sesionHoy && cerrada(sesionHoy), horaEntreno: perfilNut?.horaEntreno || null,
     comidas: comidas.filter(c => c.tipo !== 'extra'), sueno, suplementos: sups,
     diaRecuperacion: sesionHoy?.workout?.tipo === 'recuperacion' || (!!perfilNut && !esDiaEntreno(perfilNut, fecha)),
+    // Para los avisos con la app cerrada (motor/agenda.js)
+    sesionEmpezada: !!sesionHoy && (sesionHoy.estado === 'en_curso' || cerrada(sesionHoy)),
+    aguaMaximo: !!agua.meta.maximo, aguaLogs: agua.logs.map(l => ({ min: aMinutos(l.hora), ml: l.ml })),
+    nocheMarcada: noches.some(n => n.fecha === sumarDias(fecha, 1) && n.horaDormir),   // la noche que empieza este día
   };
 }
 

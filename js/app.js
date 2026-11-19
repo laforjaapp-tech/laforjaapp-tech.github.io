@@ -41,6 +41,8 @@ import { fmtPasos } from './motor/pasos.js';
 import { sesionActual, consultarAcceso, salir, enPalabras } from './nube/acceso.js';
 import { vistaEntrar, vistaBloqueo, vistaSinConexion, vistaCuenta } from './vistas/cuenta.js';
 import * as Seguimiento from './nube/seguimiento.js';
+import { estadoAvisos, activarAvisos, renovarAvisos, apagarAvisos, callarAlarma } from './nube/avisos.js';
+import { mostrarAlarma } from './ui/alarma.js';
 import { bajarRecetas } from './nube/recetas.js';                 // RECETAS de la nutrióloga
 import { recetasPara, olvidarRecetas } from './datos/recetas.js';
 
@@ -411,7 +413,7 @@ async function mostrarBienestar(a, estado = {}) {
     resumenDia, agua, sueno: { meta, logs, enCurso }, recuperacion, sesionHoy, recordatorios, sugerido,
     // Alarmas con la app cerrada: el archivo de calendario usa las mismas horas que los recordatorios
     alarmas: listaAlarmas({ config: recordatorios.config, perfilNut: perfilNut.perfil, sueno: meta, suplementos }),
-    registroHoy: registros.find(r => r.fecha === hoy) || null, permiso: permisoNotificaciones(),
+    registroHoy: registros.find(r => r.fecha === hoy) || null, permiso: permisoNotificaciones(), avisos: await estadoAvisos().catch(() => 'no_disponible'),
     consejos: consejosDelDia({ fecha: hoy, perfilNut: perfilNut.perfil, sleepGoal: meta, suenoAnoche: resumenDia.sueno.anoche, sesionHoy, sesionAyer, recuperacion }),
   });
   if (d.pestana === 'resumen') d.resumenSemana = await H.resumenDeLaSemana(a, hoy);
@@ -455,7 +457,14 @@ async function mostrarBienestar(a, estado = {}) {
       if (!(await iniciarPodometro(() => contarPaso(a)))) return aviso('Este teléfono no dejó usar el sensor de pasos', 'error');
       aviso('👣 Contando: camina con el teléfono encima'); re();
     },
-    alGuardarRecordatorios: async config => { await H.guardarConfigRecordatorios({ ...recordatorios, config }); aviso('Recordatorios guardados'); re(); },
+    alGuardarRecordatorios: async config => { await H.guardarConfigRecordatorios({ ...recordatorios, config }); Seguimiento.subir(); aviso('Recordatorios guardados'); re(); },
+    alActivarAvisos: async () => {
+      let r;
+      try { r = await activarAvisos(); } catch (e) { aviso(enPalabras(e), 'error'); return re(); }
+      if (r === 'activos') { aviso('📲 Avisos activados en este teléfono'); Seguimiento.subir(); }
+      else if (r === 'bloqueados') aviso('Las notificaciones están bloqueadas: permítelas en los ajustes del teléfono', 'error');
+      re();
+    },
   }), 'bienestar');
 }
 
@@ -487,7 +496,7 @@ let cuenta = null;   // respuesta de consultarAcceso(): rol, nombre, hasta, doct
 // Se queda en las pantallas de cuenta hasta que la persona tenga acceso
 function puerta() {
   return new Promise(pasar => {
-    const cerrar = async () => { await Seguimiento.apagarSeguimiento(); await olvidarRecetas(); await salir(); comprobar(); };
+    const cerrar = async () => { await apagarAvisos(); await Seguimiento.apagarSeguimiento(); await olvidarRecetas(); await salir(); comprobar(); };
     const comprobar = async () => {
       const sesion = await sesionActual();
       if (!sesion) return cambiarPantalla(() => vistaEntrar(raiz, { alListo: comprobar }));
@@ -504,6 +513,7 @@ function puerta() {
         } catch (e) { return cambiarPantalla(() => vistaSinConexion(raiz, enPalabras(e), { alListo: comprobar, alSalir: cerrar })); }
       }
       document.getElementById('cab-cuenta').hidden = false;
+      renovarAvisos();
       ponerGlobo(0);
       pasar();
     };
@@ -537,7 +547,7 @@ async function mostrarCuenta() {
   cambiarPantalla(() => {
     vistaCuenta(raiz, cuenta, {
       alVolver: () => (actual ? abrir(actual) : inicio()),
-      alSalir: async () => { await Seguimiento.apagarSeguimiento(); await olvidarRecetas(); await salir(); location.reload(); },
+      alSalir: async () => { await apagarAvisos(); await Seguimiento.apagarSeguimiento(); await olvidarRecetas(); await salir(); location.reload(); },
       // Clienta: qué persona de este aparato ve su doctora, y cuándo se enviaron sus datos
       seguimiento: cuenta.rol === 'clienta' && {
         personas: atletas.map(a => ({ id: a.id, nombre: a.personal?.nombre || 'Sin nombre' })),
@@ -592,6 +602,23 @@ async function arrancar() {
   const a = aj?.atletaActual && await BD.obtener('atletas', aj.atletaActual);
   if (a) abrir(a); else inicio();
   iniciarRecordatorios(() => actual);
+  // Desde un aviso: la doctora va a su lista "Hoy no cumplieron"; la clienta, a la pantalla donde anota la actividad
+  const PANTALLAS = { hoy: mostrarHoy, comida: mostrarAlimentacion, bienestar: mostrarBienestar };
+  const irA = ir => {
+    const ir2 = ir === 'alertas' ? (cuenta && cuenta.rol !== 'clienta' ? mostrarCuenta : null)
+      : actual && PANTALLAS[ir] ? () => PANTALLAS[ir](actual) : null;
+    if (ir2) guardia ? guardia(ir2) : ir2();
+  };
+  const pedido = new URLSearchParams(location.search).get('ir');
+  if (pedido) { history.replaceState(null, '', location.pathname); irA(pedido); }
+  navigator.serviceWorker?.addEventListener('message', e => {
+    if (e.data?.ir) irA(e.data.ir);
+    // Alarma con la app a la vista: pantalla completa con sonido hasta que la toque
+    if (e.data?.alarma) mostrarAlarma(e.data.alarma, {
+      alHecho: d => { callarAlarma(d.ficha, 10).catch(() => {}); irA(d.ir); aviso('Anótalo ahora: si no, la alarma volverá a sonar'); },
+      alApagar: d => { callarAlarma(d.ficha).catch(() => {}); },
+    });
+  });
 }
 
 arrancar().catch(err => {

@@ -8,6 +8,7 @@ import { alertasClienta } from '../motor/alertas.js';
 import { htmlConversacion, activarConversacion } from '../ui/conversacion.js';
 import { fmtPeso, fmtCambioPeso } from '../motor/unidades.js';
 import { vistaRecetasDoctora } from './recetas.js';   // RECETAS de la nutrióloga
+import { estadoAvisos, activarAvisos } from '../nube/avisos.js';
 
 const fecha = iso => (iso ? new Date(iso.slice(0, 10) + 'T12:00').toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
 // Teléfonos de RD (809, 829, 849) sin el 1 delante: WhatsApp lo necesita
@@ -16,6 +17,31 @@ const whatsapp = (tel, texto) => {
   if (n.length === 10 && /^8[024]9/.test(n)) n = '1' + n;
   return n.length >= 10 ? `https://wa.me/${n}?text=${encodeURIComponent(texto)}` : null;
 };
+const llamada = tel => { let n = String(tel || '').replace(/\D/g, ''); if (n.length === 10) n = '1' + n; return n.length >= 10 ? `tel:+${n}` : null; };
+const ACTIVIDAD = { comida: 'tu comida', entreno: 'tu entrenamiento', agua_meta: 'el agua de hoy', sueno: 'tu descanso' };
+
+// "Hoy no cumplieron": una alerta por clienta y actividad, 1 hora después de su hora (supabase/avisos.sql)
+function htmlAlertasDelDia(alertas, avisos) {
+  const hora = iso => new Date(iso).toLocaleString('es-DO', { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+  const activar = avisos === 'activos' ? ''
+    : avisos === 'apagados' ? '<div class="acciones izq"><button type="button" class="btn mini" id="cu-avisos">📲 Recibir alertas aquí</button></div>'
+    : avisos === 'instalar' ? '<p class="ayuda">Para recibirlas en este iPhone, instala LA FORJA: Compartir ⬆️ → Agregar a inicio.</p>'
+    : avisos === 'bloqueados' ? '<p class="ayuda">Las notificaciones de LA FORJA están bloqueadas en este teléfono: permítelas en sus ajustes para recibir las alertas.</p>'
+    : '<p class="ayuda">Este teléfono no puede recibir alertas con la app cerrada: revísalas aquí.</p>';
+  return `<section class="nota cu-hoy"><h2>🔔 Hoy no cumplieron</h2>
+    <p class="ayuda">Te llega una alerta 1 hora después de cada actividad que una clienta no marque (agua: a las 3:00 p. m.; sueño: a las 7:00 a. m.).</p>
+    ${activar}
+    ${alertas.length ? `<ul class="cu-hoy-lista">${alertas.map(a => {
+      const tel = llamada(a.telefono);
+      const wa = whatsapp(a.telefono, `Hola, ${a.nombre || ''}. Te escribo de LA FORJA por ${ACTIVIDAD[a.tipo] || 'tu plan'}. ¿Cómo vas?`);
+      return `<li data-alerta="${a.id}" data-clienta-id="${a.clienta_id}">
+        <p><strong>${esc(a.nombre || 'Clienta')}</strong> ${esc(a.texto)}${a.sin_datos ? ' 📵' : ''} <span class="ayuda">· ${esc(hora(a.creada))}</span></p>
+        <div class="botones-fila">${tel ? `<a class="btn mini sec" href="${tel}">📞 Llamar</a>` : ''}${wa ? `<a class="btn mini sec" href="${wa}" target="_blank" rel="noopener">💬 WhatsApp</a>` : ''}
+          <button type="button" class="btn mini sec" data-al-ir="mensajes">✉️ Escribirle</button><button type="button" class="btn mini sec" data-al-ir="plan">🍽️ Cambiar su plan</button>
+          <button type="button" class="btn mini" data-al-vista>✓ Atendida</button></div></li>`;
+    }).join('')}</ul>` : '<p>✓ Por ahora nadie se ha saltado ninguna actividad.</p>'}
+  </section>`;
+}
 const fechaHora = iso => new Date(iso).toLocaleString('es-DO', { day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' });
 const OPCIONES_MESES = [1, 2, 3, 6].map(m => ({ id: String(m), etiqueta: m === 1 ? '1 mes' : `${m} meses` }));
 
@@ -176,14 +202,18 @@ function lineaSeguimiento(c) {
 }
 
 async function pintarPanel(caja, info, verClienta) {
-  let clientas, pendientes;
-  try { [clientas, pendientes] = await Promise.all([N.misClientas(), N.codigosPendientes()]); }
+  let clientas, pendientes, alertas, avisos;
+  try {
+    [clientas, pendientes, alertas, avisos] = await Promise.all([N.misClientas(), N.codigosPendientes(),
+      N.misAlertas().catch(() => []), estadoAvisos().catch(() => 'no_disponible')]);
+  }
   catch (e) { caja.innerHTML = `<p class="error">${esc(N.enPalabras(e))}</p>`; return; }
   const activas = clientas.filter(c => c.activa).length;
   clientas.forEach(c => { c.alertas = alertasClienta(c); });
   const atender = clientas.filter(c => c.alertas.some(x => x.nivel === 'alta'));
   caja.innerHTML = `
     <p class="subtitulo">${activas} activa${activas === 1 ? '' : 's'} · ${clientas.length - activas} en pausa. Cuando una clienta deja de pagar, LA FORJA se le cierra sola el día que vence.</p>
+    ${htmlAlertasDelDia(alertas, avisos)}
     ${atender.length ? `<section class="nota peligro cu-atender"><h2>⚠️ Necesitan atención</h2>
       <ul>${atender.map(c => `<li><button type="button" class="cu-ir" data-ir="${c.id}"><strong>${esc(c.nombre || c.correo)}</strong>
         <span>${esc(c.alertas.filter(x => x.nivel === 'alta').map(x => `${x.icono} ${x.texto}`).join(' · '))}</span></button></li>`).join('')}</ul></section>` : ''}
@@ -222,7 +252,7 @@ async function pintarPanel(caja, info, verClienta) {
       <p class="error" id="cu-error-doc" role="alert"></p>
       <div class="navegacion"><span></span><button type="submit" class="btn" id="cu-nombrar">Nombrar doctora</button></div></form></details>` : ''}`;
   activarChips(caja);
-  const repintar = () => pintarPanel(caja, info);
+  const repintar = () => pintarPanel(caja, info, verClienta);
   const monto = v => { const n = Number(String(v || '').replace(/[^\d.,]/g, '').replace(',', '.')); return n > 0 ? n : null; };
 
   const fNueva = caja.querySelector('#cu-form-nueva');
@@ -241,6 +271,23 @@ async function pintarPanel(caja, info, verClienta) {
       caja.querySelector('#cu-copiar').onclick = () => navigator.clipboard?.writeText(texto).then(() => aviso('Mensaje copiado'), () => aviso('No se pudo copiar', 'error'));
     });
   };
+
+  caja.querySelector('#cu-avisos')?.addEventListener('click', async e => {
+    e.currentTarget.disabled = true;
+    try {
+      const r = await activarAvisos();
+      aviso(r === 'activos' ? '📲 Listo: las alertas de tus clientas llegarán a este teléfono' : 'Las notificaciones están bloqueadas: permítelas en los ajustes del teléfono', r === 'activos' ? 'info' : 'error');
+    } catch (err) { aviso(N.enPalabras(err), 'error'); }
+    repintar();
+  });
+  caja.querySelectorAll('[data-alerta]').forEach(li => {
+    const c = clientas.find(x => x.id === li.dataset.clientaId);
+    li.querySelectorAll('[data-al-ir]').forEach(b => { b.hidden = !c; b.onclick = () => verClienta(c, b.dataset.alIr); });
+    li.querySelector('[data-al-vista]').onclick = async e => {
+      e.currentTarget.disabled = true;
+      try { await N.alertaVista(Number(li.dataset.alerta)); li.remove(); } catch (err) { aviso(N.enPalabras(err), 'error'); e.currentTarget.disabled = false; }
+    };
+  });
 
   caja.querySelectorAll('[data-ir]').forEach(b => b.onclick = () => {
     const c = clientas.find(x => x.id === b.dataset.ir);

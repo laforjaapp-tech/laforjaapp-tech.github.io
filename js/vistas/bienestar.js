@@ -321,15 +321,27 @@ function pestanaRecordatorios(cont, atleta, d, cb) {
   const c = d.recordatorios.config;
   const permiso = d.permiso;
   const activo = (ruta, v) => chips({ ruta, valor: v ? 'si' : 'no', opciones: [{ id: 'si', etiqueta: 'Activado' }, { id: 'no', etiqueta: 'Desactivado' }] });
+  const nube = d.avisos;
   cont.innerHTML = `<h2>🔔 Recordatorios</h2>
+    <div class="nota" id="rec-nube"><h3>📲 Avisos con la app cerrada</h3>
+      ${nube === 'activos' ? '<p>✓ Activados en este teléfono. Te llegan aunque LA FORJA esté cerrada: a la hora de cada comida, del agua, del entreno y de dormir. La alarma no se calla hasta que toques <strong>✅ Ya lo hice</strong> o <strong>🔕 Apagar</strong>, y vuelve a sonar si no anotas la actividad.</p>'
+        : nube === 'instalar' ? '<p>En iPhone primero instala LA FORJA: toca Compartir ⬆️ → <strong>Agregar a inicio</strong>, ábrela desde ese ícono y vuelve aquí.</p>'
+        : nube === 'no_disponible' ? '<p>Este teléfono no permite avisos con la app cerrada (por ejemplo, iPhone con iOS 15). Usa las alarmas del calendario de abajo.</p>'
+        : nube === 'bloqueados' ? '<p>Las notificaciones de LA FORJA están bloqueadas. Permítelas en los ajustes del teléfono (Notificaciones → LA FORJA o el navegador) y vuelve aquí.</p>'
+        : '<p>Actívalos para que el teléfono te recuerde cada actividad aunque LA FORJA esté cerrada. Se repiten hasta que la marques.</p><div class="acciones izq"><button type="button" class="btn mini" id="rec-activar">📲 Activar avisos</button></div>'}
+    </div>
     ${htmlAlarmas(d.alarmas)}
     <div class="nota">${permiso === 'granted' ? '✓ Las notificaciones del sistema están permitidas.'
       : permiso === 'denied' ? 'Las notificaciones están bloqueadas en este navegador. Los avisos se mostrarán dentro de la app cuando esté abierta. Para permitirlas, cámbialo en los ajustes del navegador.'
       : permiso === 'no_disponible' ? 'Este navegador no permite notificaciones: los avisos se mostrarán dentro de la app.'
       : 'Permite las notificaciones para recibir los avisos aunque estés en otra pantalla.'}
       ${permiso === 'default' ? '<div class="acciones izq"><button type="button" class="btn mini" id="permiso">🔔 Permitir notificaciones</button></div>' : ''}
-      <p class="ayuda">Estos avisos funcionan mientras LA FORJA está abierta (aunque esté en segundo plano). Para que suenen con la app cerrada, usa el botón de alarmas de arriba.</p></div>
+      <p class="ayuda">Con LA FORJA abierta los avisos también aparecen dentro de la app.</p></div>
     <form id="rec-form" novalidate>
+      <h3>⏰ Alarma</h3><p class="ayuda">A la hora de cada comida, del entreno y de dormir, suena y vibra cada minuto hasta que toques "✅ Ya lo hice" o "🔕 Apagar". Si la apagas sin anotar la actividad, vuelve a sonar.</p>
+      ${activo('avisos.alarma', c.avisos?.alarma !== false)}
+      <span class="campo-etiqueta">Si la apago sin anotar, que vuelva a sonar en</span>${chips({ ruta: 'avisos.repetirMin', numerico: true, valor: c.avisos?.repetirMin || 15, opciones: [10, 15, 20, 30].map(n => ({ id: n, etiqueta: `${n} min` })) })}
+      <span class="campo-etiqueta">El agua también como alarma</span>${chips({ ruta: 'avisos.aguaAlarma', valor: c.avisos?.aguaAlarma ? 'si' : 'no', opciones: [{ id: 'si', etiqueta: 'Sí' }, { id: 'no', etiqueta: 'No, aviso normal' }] })}
       <h3>🏋️ Entrenamiento</h3><p class="ayuda">"Tu entrenamiento de hoy está listo." — los días de entrenamiento.</p>
       ${activo('entreno.activo', c.entreno.activo)}
       <span class="campo-etiqueta">Minutos antes de tu hora de entrenamiento</span>${chips({ ruta: 'entreno.minutosAntes', numerico: true, valor: c.entreno.minutosAntes, opciones: [15, 30, 60].map(n => ({ id: n, etiqueta: `${n} min` })) })}
@@ -352,6 +364,7 @@ function pestanaRecordatorios(cont, atleta, d, cb) {
   activarChips(f);
   cont.querySelector('#permiso')?.addEventListener('click', cb.alPermiso);
   cont.querySelector('#rec-probar').onclick = cb.alProbar;
+  cont.querySelector('#rec-activar')?.addEventListener('click', e => { e.currentTarget.disabled = true; cb.alActivarAvisos(); });
   activarAlarmas(cont, d.alarmas);
   cont.querySelector('#rec-guardar').onclick = () => {
     const r = leerFormulario(f, {});
@@ -361,6 +374,7 @@ function pestanaRecordatorios(cont, atleta, d, cb) {
       agua: { activo: si(r.agua.activo), cadaMin: r.agua.cadaMin || 90, desde: r.agua.desde || '08:00', hasta: r.agua.hasta || '21:00', entreno: si(r.agua.entreno) },
       comida: { activo: si(r.comida.activo), minutosAntes: r.comida.minutosAntes ?? 10 },
       recuperacion: { activo: si(r.recuperacion.activo), hora: r.recuperacion.hora || '08:30' },
+      avisos: { repetirMin: r.avisos?.repetirMin || 15, alarma: si(r.avisos?.alarma), aguaAlarma: si(r.avisos?.aguaAlarma) },
     });
   };
 }

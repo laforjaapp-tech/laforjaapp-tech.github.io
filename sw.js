@@ -1,5 +1,5 @@
 // Permite usar la app sin internet. Al cambiar archivos, subir VERSION para renovar la copia.
-const VERSION = 'la-forja-v7';
+const VERSION = 'la-forja-v9';
 // Lista generada con todos los archivos de la app (incluye los modelos 3D y la librería three)
 const ARCHIVOS = [
   './', 'index.html', 'manifest.webmanifest', 'css/estilos.css', 'icons/forja-192.png', 'icons/forja-512.png', 'icons/forja-maskable-512.png', 'icons/forja.svg',
@@ -18,7 +18,7 @@ const ARCHIVOS = [
   'js/motor/recuperacion.js', 'js/motor/rendimiento.js', 'js/motor/retos.js', 'js/motor/seguimiento.js', 'js/motor/seguridad.js',
   'js/motor/semana.js', 'js/motor/sesiones.js', 'js/motor/unidades.js', 'js/ui/atleta3d.js', 'js/ui/ciencia.js', 'js/ui/componentes.js',
   'js/ui/cronometro.js', 'js/ui/equipo.js', 'js/ui/figura.js', 'js/ui/notificaciones.js', 'js/ui/podometro.js', 'js/ui/tecnica.js',
-  'js/ui/temas.js', 'js/ui/voz.js', 'js/vendor/supabase/supabase.js', 'js/nube/cliente.js', 'js/nube/acceso.js', 'js/nube/seguimiento.js', 'js/vistas/cuenta.js', 'js/vistas/ficha.js', 'js/ui/conversacion.js', 'js/motor/alertas.js',
+  'js/ui/temas.js', 'js/ui/voz.js', 'js/vendor/supabase/supabase.js', 'js/nube/cliente.js', 'js/nube/acceso.js', 'js/nube/seguimiento.js', 'js/nube/avisos.js', 'js/motor/agenda.js', 'js/ui/alarma.js', 'js/vistas/cuenta.js', 'js/vistas/ficha.js', 'js/ui/conversacion.js', 'js/motor/alertas.js',
   'js/motor/recetas.js', 'js/datos/recetas.js', 'js/nube/recetas.js', 'js/ui/lectorReceta.js', 'js/vistas/recetas.js',
   'js/datos/dietas.js', 'js/motor/planComidas.js', 'js/motor/revisionPlan.js', 'js/vistas/plan-doctora.js',
   'js/vendor/three/BufferGeometryUtils.js', 'js/vendor/three/GLTFLoader.js', 'js/vendor/three/three.module.min.js',
@@ -61,11 +61,55 @@ self.addEventListener('fetch', e => {
   })());
 });
 
-// FASE 4: al tocar un recordatorio, abre (o enfoca) LA FORJA
+// Avisos con la app cerrada (los manda la nube: supabase/avisos.sql).
+// ALARMA (comida, entreno, sueño…): queda fija en pantalla y vibra fuerte; la nube la vuelve a mandar cada minuto
+// hasta que se toque "✅ Ya lo hice" o "🔕 Apagar". Si la app está abierta a la vista, sale la alarma de pantalla completa.
+// Los de la doctora quedan en pantalla hasta que los toca.
+const NUBE = 'https://anmpadbswghupwagerkz.supabase.co';
+const CLAVE_PUBLICA = 'sb_publishable_IPpiPnxxz4AChlf3g5meyw_iebnViqP';
+const PANTALLA = { comida: 'comida', agua: 'bienestar', sueno: 'bienestar', entreno: 'hoy' };   // dónde se anota cada actividad
+const VIBRAR_ALARMA = [900, 300, 900, 300, 900, 300, 1500];
+
+const callar = (ficha, minutos = null) => fetch(`${NUBE}/rest/v1/rpc/apagar_aviso`, {
+  method: 'POST', headers: { apikey: CLAVE_PUBLICA, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_ficha: ficha, p_minutos: minutos }),
+}).catch(() => {});
+
+self.addEventListener('push', e => {
+  let d;
+  try { d = e.data.json(); } catch { d = { titulo: 'LA FORJA', cuerpo: e.data ? e.data.text() : '' }; }
+  const alarma = !!d.alarma && !!d.ficha;
+  e.waitUntil((async () => {
+    if (alarma) {
+      const vista = (await self.clients.matchAll({ type: 'window', includeUncontrolled: true })).find(c => c.visibilityState === 'visible');
+      if (vista) { vista.postMessage({ alarma: { ...d, ir: PANTALLA[d.tipo] || '' } }); return; }
+    }
+    const acciones = !d.ficha ? [] : alarma ? [{ action: 'hecho', title: '✅ Ya lo hice' }, { action: 'apagar', title: '🔕 Apagar' }]
+      : [{ action: 'apagar', title: '🔕 Apagar este recordatorio' }];
+    await self.registration.showNotification(alarma ? `⏰ ${d.titulo || 'LA FORJA'}` : (d.titulo || 'LA FORJA'), {
+      body: d.cuerpo || '', icon: 'icons/forja-192.png', badge: 'icons/forja-192.png',
+      tag: d.tema || undefined, renotify: !!d.tema, requireInteraction: alarma || !!d.doctora, silent: false,
+      vibrate: alarma ? VIBRAR_ALARMA : [200, 100, 200],
+      data: { ficha: d.ficha || null, alarma, ir: d.doctora ? 'alertas' : alarma ? (PANTALLA[d.tipo] || '') : '' },
+      actions: acciones,
+    });
+  })());
+});
+
+// Abre (o enfoca) LA FORJA en la pantalla indicada
+function abrirEn(ir) {
+  return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(lista => {
+    const abierta = lista.find(c => 'focus' in c);
+    if (abierta) { if (ir) abierta.postMessage({ ir }); return abierta.focus(); }
+    return self.clients.openWindow(ir ? `./?ir=${ir}` : './');
+  });
+}
+
+// "🔕 Apagar": la nube la calla unos minutos (alarma) o del todo (aviso normal), sin abrir la app.
+// "✅ Ya lo hice" (o tocar la alarma): se calla 10 minutos y abre la app donde se anota; si no se anota, vuelve a sonar.
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(lista => {
-    const abierta = lista.find(c => 'focus' in c);
-    return abierta ? abierta.focus() : self.clients.openWindow('./');
-  }));
+  const datos = e.notification.data || {};
+  if (e.action === 'apagar' && datos.ficha) return e.waitUntil(callar(datos.ficha));
+  if (datos.alarma && datos.ficha) return e.waitUntil(Promise.all([callar(datos.ficha, 10), abrirEn(datos.ir)]));
+  e.waitUntil(abrirEn(datos.ir));
 });

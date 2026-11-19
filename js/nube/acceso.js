@@ -91,6 +91,9 @@ export const borrarDieta = id => llamar('borrar_dieta', { p_id: id });
 export const mensajesDe = (clienta = null) => llamar('mensajes_de', { p_clienta: clienta });
 export const enviarMensaje = (clienta, texto) => llamar('enviar_mensaje', { p_clienta: clienta, p_texto: texto });
 export const novedades = () => llamar('novedades');
+// Alertas a la doctora: actividades que sus clientas no marcaron (supabase/avisos.sql)
+export const misAlertas = () => llamar('mis_alertas');
+export const alertaVista = id => llamar('alerta_vista', { p_id: id });
 
 export async function codigosPendientes() {
   const { data, error } = await nube.from('invitaciones').select('codigo, nombre, telefono, meses, creada')

@@ -10,6 +10,9 @@ export const RECORDATORIOS_DEFECTO = {
   comida: { activo: true, minutosAntes: 10 },
   entreno: { activo: true, minutosAntes: 30 },
   recuperacion: { activo: true, hora: '08:30' },
+  // Con la app cerrada (motor/agenda.js). Alarma: suena cada minuto hasta que se toque un botón; "Apagar" la calla
+  // repetirMin minutos y vuelve a sonar si la actividad sigue sin anotarse. El agua, alarma solo si se elige.
+  avisos: { repetirMin: 15, alarma: true, aguaAlarma: false },
 };
 
 export const MENSAJES = {

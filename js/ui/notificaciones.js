@@ -5,6 +5,10 @@
 import { recordatoriosPendientes } from '../motor/recordatorios.js';
 import { estadoRecordatorios, marcarEnviados, registrarAgua } from '../datos/habitos.js';
 import { esc, aviso } from './componentes.js';
+import { nubeAvisa } from '../nube/avisos.js';
+
+// Estos ya los manda la nube a este teléfono (también con la app cerrada): con la app abierta solo se muestran dentro
+const DE_LA_NUBE = av => ['comida', 'entreno', 'agua'].includes(av.tipo) || av.clave.startsWith('sueno:');
 
 let alRegistrarAgua = null;   // la app refresca la pantalla tras registrar agua desde el aviso
 
@@ -17,7 +21,7 @@ export async function pedirPermiso() {
 }
 
 async function mostrar(av, atletaId) {
-  if (permisoNotificaciones() === 'granted') {
+  if (permisoNotificaciones() === 'granted' && !(nubeAvisa() && DE_LA_NUBE(av))) {
     try {
       const reg = await navigator.serviceWorker?.getRegistration();
       const opciones = { body: av.cuerpo, tag: av.clave, silent: av.silencioso, icon: 'icons/forja-192.png', badge: 'icons/forja-192.png' };
