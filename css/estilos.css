@@ -1206,6 +1206,14 @@ input:focus, textarea:focus { outline: none; border-color: var(--brasa); box-sha
 .cu-hoy-lista li { border-top: 1px solid var(--borde); padding-top: 8px; }
 .cu-hoy-lista p { margin: 0 0 6px; }
 .cu-hoy-lista .botones-fila { flex-wrap: wrap; }
+/* Alarmas de las clientas: quién las tiene activas y pedírselo */
+.cu-alarmas h2 { margin: 0 0 4px; font-size: 1.2rem; }
+.cu-alarma { margin: 6px 0 4px; font-size: 0.92rem; font-weight: 600; }
+.cu-clienta .botones-fila { flex-wrap: wrap; }
+/* Pantalla de la clienta: su doctora le pide activar las alarmas */
+.modal.pedido-avisos { border: 2px solid rgba(var(--acento-rgb), 0.7); }
+.modal.pedido-avisos h2 { margin-top: 0; }
+.modal.pedido-avisos ol { padding-left: 1.2em; display: grid; gap: 6px; }
 .cu-atender ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
 .cu-ir { width: 100%; text-align: left; background: none; border: 0; padding: 6px 0; cursor: pointer; color: var(--texto); font: inherit; display: grid; gap: 2px; }
 .cu-ir span { color: var(--texto-2); font-size: 0.9rem; }

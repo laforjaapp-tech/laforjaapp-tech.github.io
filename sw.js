@@ -1,5 +1,5 @@
 // Permite usar la app sin internet. Al cambiar archivos, subir VERSION para renovar la copia.
-const VERSION = 'la-forja-v10';
+const VERSION = 'la-forja-v11';
 // Lista generada con todos los archivos de la app (incluye los modelos 3D y la librería three)
 const ARCHIVOS = [
   './', 'index.html', 'manifest.webmanifest', 'css/estilos.css', 'icons/forja-192.png', 'icons/forja-512.png', 'icons/forja-maskable-512.png', 'icons/forja.svg',
@@ -18,7 +18,7 @@ const ARCHIVOS = [
   'js/motor/recuperacion.js', 'js/motor/rendimiento.js', 'js/motor/retos.js', 'js/motor/seguimiento.js', 'js/motor/seguridad.js',
   'js/motor/semana.js', 'js/motor/sesiones.js', 'js/motor/unidades.js', 'js/ui/atleta3d.js', 'js/ui/ciencia.js', 'js/ui/componentes.js',
   'js/ui/cronometro.js', 'js/ui/equipo.js', 'js/ui/figura.js', 'js/ui/notificaciones.js', 'js/ui/podometro.js', 'js/ui/tecnica.js',
-  'js/ui/temas.js', 'js/ui/voz.js', 'js/vendor/supabase/supabase.js', 'js/nube/cliente.js', 'js/nube/acceso.js', 'js/nube/seguimiento.js', 'js/nube/avisos.js', 'js/motor/agenda.js', 'js/ui/alarma.js', 'js/vistas/cuenta.js', 'js/vistas/ficha.js', 'js/ui/conversacion.js', 'js/motor/alertas.js',
+  'js/ui/temas.js', 'js/ui/voz.js', 'js/vendor/supabase/supabase.js', 'js/nube/cliente.js', 'js/nube/acceso.js', 'js/nube/seguimiento.js', 'js/nube/avisos.js', 'js/motor/agenda.js', 'js/ui/alarma.js', 'js/ui/pedidoAvisos.js', 'js/vistas/cuenta.js', 'js/vistas/ficha.js', 'js/ui/conversacion.js', 'js/motor/alertas.js',
   'js/motor/recetas.js', 'js/datos/recetas.js', 'js/nube/recetas.js', 'js/ui/lectorReceta.js', 'js/vistas/recetas.js',
   'js/datos/dietas.js', 'js/motor/planComidas.js', 'js/motor/revisionPlan.js', 'js/vistas/plan-doctora.js',
   'js/vendor/three/BufferGeometryUtils.js', 'js/vendor/three/GLTFLoader.js', 'js/vendor/three/three.module.min.js',

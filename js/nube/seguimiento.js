@@ -152,7 +152,7 @@ export async function cambiarPersona(cuenta, atletaId) {
 
 // Mensajes sin leer y ajustes del plan que puso la doctora. Los ajustes se guardan en el teléfono para la persona
 // conectada (así valen sin internet) y el plan de comidas los aplica (datos/habitos.js).
-// Devuelve { sinLeer, mensajeNuevo, planCambio, indicaciones }, o null si no se pudo consultar.
+// Devuelve { sinLeer, mensajeNuevo, planCambio, indicaciones, pedirAvisos }, o null si no se pudo consultar.
 export async function revisarNovedades() {
   let n;
   try { n = await novedades(); } catch { return null; }
@@ -169,7 +169,7 @@ export async function revisarNovedades() {
   try { avisado = localStorage.getItem(MENSAJE_AVISADO); } catch {}
   const mensajeNuevo = n.sin_leer > 0 && n.ultimo_mensaje !== avisado;
   if (mensajeNuevo) try { localStorage.setItem(MENSAJE_AVISADO, n.ultimo_mensaje); } catch {}
-  return { sinLeer: n.sin_leer, mensajeNuevo, planCambio, indicaciones };
+  return { sinLeer: n.sin_leer, mensajeNuevo, planCambio, indicaciones, pedirAvisos: n.pedir_avisos || null };
 }
 
 // Recuperar mis datos: en un aparato (o una dirección de la app) sin ninguna persona guardada, la clienta baja la copia

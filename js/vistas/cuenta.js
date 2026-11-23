@@ -42,6 +42,37 @@ function htmlAlertasDelDia(alertas, avisos) {
     }).join('')}</ul>` : '<p>✓ Por ahora nadie se ha saltado ninguna actividad.</p>'}
   </section>`;
 }
+// 📲 Alarmas de las clientas: quién las tiene, y pedirlo por la app o por WhatsApp (sirve también a quien usa la dirección vieja)
+const DIRECCION = 'https://laforjaapp-tech.github.io';
+const ALARMAS = {
+  activos: { icono: '✅', texto: 'Alarmas activas' },
+  apagados: { icono: '⚠️', texto: 'Alarmas sin activar' },
+  bloqueados: { icono: '🚫', texto: 'Bloqueó las notificaciones en su teléfono' },
+  instalar: { icono: '📲', texto: 'Debe instalar la app en su iPhone (Compartir ⬆️ → Agregar a inicio)' },
+  no_disponible: { icono: '📵', texto: 'Su teléfono no permite alarmas: revisa sus actividades aquí' },
+  null: { icono: '❔', texto: 'Todavía no abre la versión nueva' },
+};
+const alarmaDe = c => ALARMAS[c.avisos] || ALARMAS.null;
+const faltaAlarma = c => c.activa && !['activos', 'no_disponible'].includes(c.avisos);
+const textoPedido = c => `Hola, ${c.nombre || ''}. Te escribe tu doctora de LA FORJA. Para que te lleguen las alarmas de comida, agua, entreno y sueño: abre ${DIRECCION} , entra con tu cuenta y toca "Activar alarmas" y luego "Permitir".`;
+function htmlAlarmas(clientas) {
+  const activas = clientas.filter(c => c.activa);
+  if (!activas.length) return '';
+  const con = activas.filter(c => c.avisos === 'activos').length, faltan = activas.filter(faltaAlarma).length;
+  return `<section class="nota cu-alarmas"><h2>📲 Alarmas de tus clientas</h2>
+    <p>${con} de ${activas.length} tienen las alarmas activas.${faltan ? ` Faltan ${faltan}.` : ''}</p>
+    ${faltan ? `<p class="ayuda">Al pedirlo, a cada clienta le sale una pantalla al abrir LA FORJA con un solo botón para activarlas.
+      Si no abre la app, mándale el mensaje por WhatsApp desde su tarjeta.</p>
+      <div class="acciones izq"><button type="button" class="btn mini" id="cu-pedir-todas">📲 Pedir a todas que las activen</button></div>` : ''}
+  </section>`;
+}
+function htmlAlarmaClienta(c) {
+  if (!c.activa) return '';
+  const a = alarmaDe(c), wa = faltaAlarma(c) && whatsapp(c.telefono, textoPedido(c));
+  return `<p class="cu-alarma">${a.icono} ${esc(a.texto)}${c.avisos_pedidos && faltaAlarma(c) ? ` <span class="ayuda">· pedido ${esc(haceDias(c.avisos_pedidos.slice(0, 10)))}</span>` : ''}</p>
+    ${faltaAlarma(c) ? `<div class="botones-fila"><button type="button" class="btn mini sec" data-pedir>📲 Pedírselo</button>${wa ? `<a class="btn mini sec" href="${wa}" target="_blank" rel="noopener">💬 WhatsApp</a>` : ''}</div>` : ''}`;
+}
+
 const fechaHora = iso => new Date(iso).toLocaleString('es-DO', { day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' });
 const OPCIONES_MESES = [1, 2, 3, 6].map(m => ({ id: String(m), etiqueta: m === 1 ? '1 mes' : `${m} meses` }));
 
@@ -214,6 +245,7 @@ async function pintarPanel(caja, info, verClienta) {
   caja.innerHTML = `
     <p class="subtitulo">${activas} activa${activas === 1 ? '' : 's'} · ${clientas.length - activas} en pausa. Cuando una clienta deja de pagar, LA FORJA se le cierra sola el día que vence.</p>
     ${htmlAlertasDelDia(alertas, avisos)}
+    ${htmlAlarmas(clientas)}
     ${atender.length ? `<section class="nota peligro cu-atender"><h2>⚠️ Necesitan atención</h2>
       <ul>${atender.map(c => `<li><button type="button" class="cu-ir" data-ir="${c.id}"><strong>${esc(c.nombre || c.correo)}</strong>
         <span>${esc(c.alertas.filter(x => x.nivel === 'alta').map(x => `${x.icono} ${x.texto}`).join(' · '))}</span></button></li>`).join('')}</ul></section>` : ''}
@@ -234,7 +266,8 @@ async function pintarPanel(caja, info, verClienta) {
         <div><strong>${c.activa ? '🟢' : '🔴'} ${esc(c.nombre || c.correo)}</strong>
           <p>${c.activa ? `Pagado hasta el ${esc(fecha(c.pagado_hasta))}` : `En pausa desde el ${esc(fecha(c.pagado_hasta))}`}<br>${esc(c.telefono || c.correo)}</p>
           <p class="cu-resumen">${esc(lineaSeguimiento(c))}${c.ajustado ? ' · 🩺 plan ajustado' : ''}</p>
-          ${htmlAlertas(c.alertas)}</div>
+          ${htmlAlertas(c.alertas)}
+          ${htmlAlarmaClienta(c)}</div>
         <div class="botones-fila"><button type="button" class="btn mini" data-ficha>📊 Seguimiento${c.sin_leer ? ` <b class="cv-globo">💬 ${c.sin_leer}</b>` : ''}</button><button type="button" class="btn mini sec" data-pago>💵 Pagó</button></div>
       </div>
       <div class="cu-pago" hidden>
@@ -280,6 +313,16 @@ async function pintarPanel(caja, info, verClienta) {
     } catch (err) { aviso(N.enPalabras(err), 'error'); }
     repintar();
   });
+  const pedir = async (boton, clienta) => {
+    boton.disabled = true;
+    try {
+      const n = await N.pedirAvisos(clienta);
+      aviso(clienta ? '📲 Listo: le saldrá al abrir LA FORJA' : `📲 Listo: a ${n} clienta${n === 1 ? '' : 's'} les saldrá al abrir LA FORJA`);
+      repintar();
+    } catch (err) { aviso(N.enPalabras(err), 'error'); boton.disabled = false; }
+  };
+  caja.querySelector('#cu-pedir-todas')?.addEventListener('click', e => pedir(e.currentTarget, null));
+  caja.querySelectorAll('[data-clienta] [data-pedir]').forEach(b => b.addEventListener('click', () => pedir(b, b.closest('[data-clienta]').dataset.clienta)));
   caja.querySelectorAll('[data-alerta]').forEach(li => {
     const c = clientas.find(x => x.id === li.dataset.clientaId);
     li.querySelectorAll('[data-al-ir]').forEach(b => { b.hidden = !c; b.onclick = () => verClienta(c, b.dataset.alIr); });

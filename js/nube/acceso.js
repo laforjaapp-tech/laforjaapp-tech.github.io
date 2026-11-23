@@ -94,6 +94,9 @@ export const novedades = () => llamar('novedades');
 // Alertas a la doctora: actividades que sus clientas no marcaron (supabase/avisos.sql)
 export const misAlertas = () => llamar('mis_alertas');
 export const alertaVista = id => llamar('alerta_vista', { p_id: id });
+// Alarmas: la doctora pide a una clienta (o a todas, clienta = null) que las active; el teléfono de la clienta dice cómo están
+export const pedirAvisos = (clienta = null) => llamar('pedir_avisos', { p_clienta: clienta });
+export const informarAvisos = estado => llamar('informar_avisos', { p_estado: estado });
 
 export async function codigosPendientes() {
   const { data, error } = await nube.from('invitaciones').select('codigo, nombre, telefono, meses, creada')

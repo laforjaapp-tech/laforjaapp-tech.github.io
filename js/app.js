@@ -38,7 +38,8 @@ import { aplicarTema, temaGuardado } from './ui/temas.js';
 import { iniciarPodometro, detenerPodometro } from './ui/podometro.js';
 import { fmtPasos } from './motor/pasos.js';
 // Cuenta en la nube: sin pago vigente no se entra
-import { sesionActual, consultarAcceso, salir, enPalabras } from './nube/acceso.js';
+import { sesionActual, consultarAcceso, salir, enPalabras, informarAvisos } from './nube/acceso.js';
+import { tocaMostrarPedido, mostrarPedidoAvisos } from './ui/pedidoAvisos.js';
 import { vistaEntrar, vistaBloqueo, vistaSinConexion, vistaCuenta } from './vistas/cuenta.js';
 import * as Seguimiento from './nube/seguimiento.js';
 import { estadoAvisos, activarAvisos, renovarAvisos, apagarAvisos, callarAlarma } from './nube/avisos.js';
@@ -534,12 +535,35 @@ async function revisarNovedades() {
     ponerGlobo(n.sinLeer);
     if (n.mensajeNuevo) aviso(`💬 ${cuenta.doctora || 'Tu doctora'} te escribió. Toca "Cuenta" para leerlo.`);
   }
+  revisarAlarmas(!!n?.pedirAvisos);
   const planCambio = !!n?.planCambio, recetasCambio = !!r?.cambio;
   if (!planCambio && !recetasCambio) return;
   // El menú se rehace ya (no solo al entrar a Comida), para que "Hoy" muestre las comidas nuevas
   if (actual) await H.asegurarPlan(actual);
   if (planCambio) aviso(n.indicaciones ? `🩺 ${n.indicaciones.por || 'Tu nutrióloga'} ajustó tu plan de comidas` : '🩺 Tu plan de comidas volvió al cálculo de la app');
   if (recetasCambio && r.lista.length) aviso(`📖 ${cuenta.doctora || 'Tu nutrióloga'} te mandó recetas: ya están en tu menú`);
+}
+
+// 📲 Alarmas: el teléfono le dice a la nube cómo están (su doctora lo ve en su lista) y, si ella pidió activarlas,
+// sale la pantalla con un solo botón (nunca en medio de un entrenamiento)
+const ALARMAS_DICHO = 'laforja-alarmas-informado';
+async function revisarAlarmas(pedido) {
+  if (cuenta?.rol !== 'clienta') return;
+  const estado = await estadoAvisos().catch(() => 'no_disponible');
+  const marca = `${cuenta.cuenta}:${estado}`;
+  let dicho = null;
+  try { dicho = localStorage.getItem(ALARMAS_DICHO); } catch {}
+  if (dicho !== marca) informarAvisos(estado).then(() => { try { localStorage.setItem(ALARMAS_DICHO, marca); } catch {} }, () => {});
+  if (!pedido || guardia || !tocaMostrarPedido(estado)) return;
+  mostrarPedidoAvisos({
+    doctora: cuenta.doctora, estado,
+    alActivar: async () => {
+      const r = await activarAvisos();
+      if (r === 'activos') { aviso('📲 Alarmas activadas en este teléfono'); Seguimiento.subir(); }
+      revisarAlarmas(false);
+      return r;
+    },
+  });
 }
 
 async function mostrarCuenta() {
@@ -576,11 +600,27 @@ async function revisarAcceso() {
   else if (info) cuenta = info;
 }
 
+// 🔄 Versión nueva: al abrir con internet ya llegan los archivos nuevos (sw.js pide primero la red). Si la app quedó
+// abierta en segundo plano, al volver a ella se busca la versión nueva y, si llegó, se recarga sola
+// (nunca en medio de un entrenamiento ni con una ventana abierta: espera a la próxima vez que vuelva)
+let versionNueva = false;
+function ponerseAlDia() {
+  if (!('serviceWorker' in navigator)) return;
+  const habia = !!navigator.serviceWorker.controller;   // la primera instalación no recarga
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (habia) versionNueva = true; });
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { recargarSiSePuede(); reg.update().catch(() => {}); } });
+  }).catch(() => {});
+}
+function recargarSiSePuede() {
+  if (versionNueva && !guardia && !document.querySelector('.modal-fondo')) location.reload();
+}
+
 async function arrancar() {
   raiz.dataset.listo = '1';   // los módulos cargaron bien: el aviso de "No se pudo abrir" de index.html no se muestra
   aplicarTema(temaGuardado());
   document.title = APP.nombre;
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  ponerseAlDia();
   await puerta();
   revisarNovedades();
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { revisarAcceso(); revisarNovedades(); } });
