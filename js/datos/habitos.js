@@ -65,7 +65,17 @@ export async function guardarGustos(atleta, gustos, nuevosFavoritos = []) {
 // =====================================================================
 // Genera las semanas que falten y, si cambian las necesidades (p. ej. cambió el peso) o las preferencias,
 // rehace las comidas futuras que aún no se registraron. Las ya registradas nunca se tocan.
-export async function asegurarPlan(atleta, { forzar = false } = {}) {
+// CANDADO: el menú se arma de a uno. Si dos partes de la app lo piden a la vez (p. ej. la pantalla de Comida y la
+// revisión de novedades), la segunda espera a la primera; sin esto se creaban dos menús para la misma semana.
+let planEnCurso = Promise.resolve();
+export function asegurarPlan(atleta, opciones) {
+  const vuelta = planEnCurso.then(() => armarPlan(atleta, opciones));
+  planEnCurso = vuelta.catch(() => {});
+  return vuelta;
+}
+
+async function armarPlan(atleta, { forzar = false } = {}) {
+  await quitarSemanasRepetidas(atleta.id);
   const d = await datosNutricion(atleta);
   if (!d.perfil) return { configurado: false, ...d };
   const perfil = d.perfil;
@@ -99,6 +109,24 @@ export async function asegurarPlan(atleta, { forzar = false } = {}) {
 export async function indicacionesDe(atleta) {
   const ind = await BD.obtener('ajustes', 'indicaciones');
   return ind?.atletaId === atleta.id ? ind : null;
+}
+
+// Menús repetidos que dejó el error de antes (dos menús de la misma semana): se queda el primero; del sobrante se
+// borran las comidas sin registrar y las ya registradas pasan al que se queda (nunca se pierde lo anotado)
+async function quitarSemanasRepetidas(atletaId) {
+  const semanas = (await BD.porAtleta('meal_plans', atletaId)).sort((a, b) => a.inicio.localeCompare(b.inicio) || String(a.id).localeCompare(String(b.id)));
+  const primera = {};
+  for (const sem of semanas) {
+    const queda = primera[sem.inicio];
+    if (!queda) { primera[sem.inicio] = sem; continue; }
+    const comidas = await BD.porIndice('meals', 'mealPlanId', sem.id);
+    const sinRegistrar = comidas.filter(m => m.estado === 'planificada' && m.tipo !== 'extra');
+    for (const m of sinRegistrar) await BD.borrarVarios('meal_items', (await BD.porIndice('meal_items', 'mealId', m.id)).map(i => i.id));
+    await BD.borrarVarios('meals', sinRegistrar.map(m => m.id));
+    const registradas = comidas.filter(m => !sinRegistrar.includes(m)).map(m => ({ ...m, mealPlanId: queda.id }));
+    if (registradas.length) await BD.guardarVarios('meals', registradas);
+    await BD.borrarVarios('meal_plans', [sem.id]);
+  }
 }
 
 async function guardarSemana(atletaId, existente, inicio, sem, desde, firma, planNutId) {

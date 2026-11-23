@@ -80,7 +80,9 @@ export async function subirAgenda(atletaId) {
   const hoy = hoyISO(), dias = [hoy, sumarDias(hoy, 1), sumarDias(hoy, 2)];
   const items = [];
   for (const fecha of dias) items.push(...agendaDelDia(await estadoRecordatorios(atleta, fecha)));
-  const { error } = await nube.rpc('subir_agenda', { p_items: items, p_dias: dias }).abortSignal(limiteDeEspera(ESPERA_MS));
+  // Una sola actividad por clave: dos iguales hacían que la nube rechazara toda la agenda
+  const unicos = [...new Map(items.map(x => [x.clave, x])).values()];
+  const { error } = await nube.rpc('subir_agenda', { p_items: unicos, p_dias: dias }).abortSignal(limiteDeEspera(ESPERA_MS));
   if (error) throw error;
 }
 

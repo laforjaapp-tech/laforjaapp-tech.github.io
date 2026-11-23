@@ -53,7 +53,7 @@ export function vistaPerfil(raiz, atleta, { mediciones, alRegistrarMedicion, alI
 
     <div class="tiles">
       ${tarjeta('Nivel', `${nivel.emoji} ${nivel.etiqueta}`, 'Orientativo')}
-      ${tarjeta('Objetivo', esc(C.etiquetaDe(C.OBJETIVOS, obj.principal)).toUpperCase(), secundarios.length ? 'También: ' + esc(secundarios.map(s => C.etiquetaDe(C.OBJETIVOS, s)).join(', ')) : '')}
+      ${tarjeta('Objetivo', esc(C.etiquetaDe(C.OBJETIVOS, obj.principal)).toUpperCase(), secundarios.length ? 'También: ' + esc(secundarios.slice(0, 3).map(s => C.etiquetaDe(C.OBJETIVOS, s)).join(', ')) + (secundarios.length > 3 ? ` y ${secundarios.length - 3} más` : '') : '')}
       ${tarjeta('Disponibilidad', `${atleta.disponibilidad.dias} días/semana`)}
       ${tarjeta('Duración', atleta.disponibilidad.minutos > 90 ? 'Más de 90 min' : `${atleta.disponibilidad.minutos} minutos`)}
       ${tarjeta('Equipamiento', resumenEquipo(atleta))}
@@ -71,7 +71,7 @@ export function vistaPerfil(raiz, atleta, { mediciones, alRegistrarMedicion, alI
         const val = pf.puntuaciones[k];
         return `<div class="medidor"><span class="m-etiqueta">${esc(et)}</span>
           <span class="m-pista" role="img" aria-label="${esc(et)}: ${val == null ? 'sin medir' : val + ' de 100'}">${val == null ? '' : `<span class="m-barra" style="width:${Math.max(2, val)}%"></span>`}</span>
-          <span class="m-valor">${val == null ? 'Sin medir' : `${val}<small>/100</small>`}</span></div>`;
+          ${val == null ? '<span class="m-valor sin-medir">Sin medir</span>' : `<span class="m-valor">${val}<small>/100</small></span>`}</div>`;
       }).join('')}
     </div>
 

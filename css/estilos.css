@@ -359,6 +359,7 @@ input:focus, textarea:focus { outline: none; border-color: var(--brasa); box-sha
 .m-barra { display: block; height: 100%; background: var(--fuego); border-radius: 5px; }
 .m-valor { font-family: var(--display); font-weight: 800; font-style: var(--italica); font-size: 1.5rem; font-variant-numeric: tabular-nums; text-align: right; line-height: 1; }
 .m-valor small { color: var(--texto-3); font-weight: 600; font-style: normal; font-size: 0.85rem; }
+.m-valor.sin-medir { font-family: inherit; font-size: 0.9rem; font-weight: 600; font-style: normal; color: var(--texto-3); white-space: nowrap; }
 
 .estrategia { display: grid; gap: 8px; }
 .fila-estrategia {
@@ -515,8 +516,18 @@ input:focus, textarea:focus { outline: none; border-color: var(--brasa); box-sha
   .fila-estrategia { grid-template-columns: 1fr auto; }
   .e-nota { grid-column: 1 / -1; }
   .barra-seguridad { top: 58px; }
-  .bienvenida::after { width: 260px; height: 190px; right: -60px; }
-  .tile-valor { font-size: 1.25rem; }
+  .bienvenida::after { width: 260px; height: 190px; right: 0; }   /* antes se salía 60 px y la pantalla se corría de lado */
+  /* Letras a la medida del teléfono: títulos y valores grandes ya no ocupan media pantalla */
+  h1 { font-size: 1.65rem; }
+  h2 { font-size: 1.3rem; }
+  h3 { font-size: 1.05rem; }
+  .bienvenida h1 { font-size: 2rem; }
+  .subtitulo { font-size: 1rem; }
+  .bloque strong { font-size: 1.2rem; }
+  .e-mod { font-size: 1rem; }
+  .e-val { font-size: 1.05rem; }
+  .m-valor { font-size: 1.25rem; }
+  .tile-valor { font-size: 1.1rem; }
   .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .tile { padding: 12px; }
 }

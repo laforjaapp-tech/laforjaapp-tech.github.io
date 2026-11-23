@@ -510,7 +510,11 @@ function puerta() {
       // empezar en blanco haría que la primera subida borrara la copia buena de la nube.
       if (!(await BD.todos('atletas')).length) {
         try {
-          if (await Seguimiento.recuperarDeLaNube(info)) aviso('✅ Recuperamos tus datos');
+          const recuperada = await Seguimiento.recuperarDeLaNube(info);
+          if (recuperada) {
+            aviso('✅ Recuperamos tus datos');
+            await H.asegurarPlan(recuperada).catch(() => {});   // el menú de la semana, para que "Hoy" y las alarmas lo tengan ya
+          }
         } catch (e) { return cambiarPantalla(() => vistaSinConexion(raiz, enPalabras(e), { alListo: comprobar, alSalir: cerrar })); }
       }
       document.getElementById('cab-cuenta').hidden = false;
@@ -621,6 +625,8 @@ async function arrancar() {
   aplicarTema(temaGuardado());
   document.title = APP.nombre;
   ponerseAlDia();
+  // Que el teléfono no borre los datos de LA FORJA cuando le falta espacio (Chrome/Samsung lo hacen con las páginas)
+  try { navigator.storage?.persist?.().catch(() => {}); } catch {}
   await puerta();
   revisarNovedades();
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { revisarAcceso(); revisarNovedades(); } });
