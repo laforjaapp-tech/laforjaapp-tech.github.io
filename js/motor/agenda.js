@@ -47,10 +47,11 @@ export function agendaDelDia(e) {
     const marcada = !!c.estado && c.estado !== 'planificada' && c.estado !== 'en_curso';
     poner({
       clave: `comida:${f}:${c.tipo}:${c.hora}`, tipo: 'comida',
-      titulo: `🥗 ${nombre} · ${hora12(t)}`, cuerpo: `${c.nombre || 'Tu comida'}. Márcala en LA FORJA cuando comas.`,
+      titulo: `🥗 ${nombre} · ${hora12(t)}`, cuerpo: c.estandar ? 'Anota en tu libreta de LA FORJA lo que comas.' : `${c.nombre || 'Tu comida'}. Márcala en LA FORJA cuando comas.`,
       recordar: cfg.comida.activo, hora: enFecha(f, t), hasta: enFecha(f, Math.max(t + 15, Math.min(sig, FIN_DEL_DIA))),
       alerta: enFecha(f, t + ALERTA_DESPUES_MIN), hecho: marcada, cumplido: COMIDO.includes(c.estado),
-      texto_doctora: c.estado === 'no_realizada' ? `marcó que no comió: ${nombre.toLowerCase()} (${hora12(t)})` : `no ha marcado ${nombre.toLowerCase()} (${hora12(t)})`,
+      texto_doctora: c.estado === 'no_realizada' ? `marcó que no comió: ${nombre.toLowerCase()} (${hora12(t)})`
+        : `no ha marcado ${nombre.toLowerCase()} (${hora12(t)}${c.estandar ? ', horario estándar: aún no configura su alimentación' : ''})`,
     });
   });
 

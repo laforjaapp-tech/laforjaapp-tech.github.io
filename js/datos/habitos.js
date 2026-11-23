@@ -2,8 +2,8 @@
 // y seguimiento (frutas, café, azúcar, vitaminas, rachas). Une los datos guardados con los motores.
 
 import * as BD from './almacen.js';
-import { platoPorId, alimentoPorId } from './alimentos.js';
-import { alternativas, platosParecidos, listaComprasDesde, nombreComida, totales, aMinutos } from '../motor/nutricion.js';
+import { platoPorId, alimentoPorId, COMIDAS_POR_DIA } from './alimentos.js';
+import { alternativas, platosParecidos, listaComprasDesde, nombreComida, totales, aMinutos, perfilNutricionalInicial } from '../motor/nutricion.js';
 import { prepararPlan, semanaDe } from '../motor/planComidas.js';
 import { metaAgua, necesitaPausasAgua, INTENSOS } from '../motor/hidratacion.js';
 import { suenoPorDefecto, duracionSueno, puntuacionRecuperacion, esDiaEntreno, resumenSemana, fechaDeLaNoche } from '../motor/recuperacion.js';
@@ -429,18 +429,34 @@ export async function estadoRecordatorios(atleta, fecha = hoyISO()) {
   ]);
   const sesionHoy = sesiones.find(s => s.fecha === fecha);
   const ultimo = agua.logs[agua.logs.length - 1];
-  const entrenoHoy = esDiaEntreno(perfilNut, fecha) || (!!sesionHoy && sesionHoy.workout?.tipo !== 'recuperacion');
+  // Sin perfil de alimentación todavía: horario ESTÁNDAR (el mismo que propone el formulario) para que los avisos de
+  // comida y entreno funcionen desde el primer día. En cuanto guarde su perfil, manda su horario.
+  const perfilAvisos = perfilNut || perfilNutricionalInicial(atleta);
+  const entrenoHoy = esDiaEntreno(perfilAvisos, fecha) || (!!sesionHoy && sesionHoy.workout?.tipo !== 'recuperacion');
   return {
     rec, fecha, config: rec.config, enviados: rec.enviados,
     aguaMl: agua.consumido, metaAgua: agua.meta.ml, ultimoAgua: ultimo ? aMinutos(ultimo.hora) : null,
-    entrenoHoy, sesionHecha: !!sesionHoy && cerrada(sesionHoy), horaEntreno: perfilNut?.horaEntreno || null,
-    comidas: comidas.filter(c => c.tipo !== 'extra'), sueno, suplementos: sups,
+    entrenoHoy, sesionHecha: !!sesionHoy && cerrada(sesionHoy), horaEntreno: perfilAvisos.horaEntreno || null,
+    comidas: perfilNut ? comidas.filter(c => c.tipo !== 'extra') : comidasEstandar(perfilAvisos, comidas), sueno, suplementos: sups,
     diaRecuperacion: sesionHoy?.workout?.tipo === 'recuperacion' || (!!perfilNut && !esDiaEntreno(perfilNut, fecha)),
     // Para los avisos con la app cerrada (motor/agenda.js)
     sesionEmpezada: !!sesionHoy && (sesionHoy.estado === 'en_curso' || cerrada(sesionHoy)),
     aguaMaximo: !!agua.meta.maximo, aguaLogs: agua.logs.map(l => ({ min: aMinutos(l.hora), ml: l.ml })),
     nocheMarcada: noches.some(n => n.fecha === sumarDias(fecha, 1) && n.horaDormir),   // la noche que empieza este día
   };
+}
+
+// Comidas del horario estándar (sin plan): cuenta como comida lo que anote en su libreta desde 1 hora antes
+// hasta la siguiente comida (las bebidas solas no cuentan)
+export function comidasEstandar(perfil, anotadas = []) {
+  const tipos = COMIDAS_POR_DIA[perfil.comidas] || COMIDAS_POR_DIA[4];
+  const comidas = tipos.filter(t => perfil.horarios?.[t]).map(tipo => ({ tipo, hora: perfil.horarios[tipo] }))
+    .sort((a, b) => aMinutos(a.hora) - aMinutos(b.hora));
+  const extras = anotadas.filter(c => c.tipo === 'extra' && !c.registro?.soloBebida).map(c => aMinutos(c.registro?.horaComida || c.hora));
+  return comidas.map((c, i) => {
+    const t = aMinutos(c.hora), sig = comidas[i + 1] ? aMinutos(comidas[i + 1].hora) : t + 180;
+    return { ...c, nombre: 'Tu comida', estandar: true, estado: extras.some(m => m >= t - 60 && m < sig) ? 'diferente' : 'planificada' };
+  });
 }
 
 export async function marcarEnviados(rec, claves) {

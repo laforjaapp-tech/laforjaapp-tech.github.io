@@ -1,5 +1,5 @@
 // Permite usar la app sin internet. Al cambiar archivos, subir VERSION para renovar la copia.
-const VERSION = 'la-forja-v9';
+const VERSION = 'la-forja-v10';
 // Lista generada con todos los archivos de la app (incluye los modelos 3D y la librería three)
 const ARCHIVOS = [
   './', 'index.html', 'manifest.webmanifest', 'css/estilos.css', 'icons/forja-192.png', 'icons/forja-512.png', 'icons/forja-maskable-512.png', 'icons/forja.svg',

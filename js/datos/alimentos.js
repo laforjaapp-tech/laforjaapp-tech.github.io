@@ -202,7 +202,7 @@ export const REPARTO_COMIDAS = {
 
 // Horarios según el tipo de jornada
 export const PLANTILLAS_HORARIO = [
-  { id: 'normal', etiqueta: 'Horario normal', horarios: { desayuno: '07:00', media: '10:00', almuerzo: '12:30', merienda: '16:00', cena: '19:30' } },
+  { id: 'normal', etiqueta: 'Horario normal', horarios: { desayuno: '08:00', media: '10:00', almuerzo: '12:00', merienda: '15:30', cena: '19:30' } },
   { id: 'madrugo', etiqueta: 'Madrugo (entro a las 7)', horarios: { desayuno: '06:00', media: '09:30', almuerzo: '12:30', merienda: '15:30', cena: '19:00' } },
   { id: 'almuerzo_tarde', etiqueta: 'Almuerzo tarde en casa', horarios: { desayuno: '06:00', media: '10:00', almuerzo: '15:30', merienda: '17:30', cena: '20:00' } },
   { id: 'noche', etiqueta: 'Trabajo de noche', horarios: { desayuno: '18:00', media: '21:00', almuerzo: '23:30', merienda: '03:00', cena: '07:00' } },
