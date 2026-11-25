@@ -2,87 +2,14 @@
 // contar frutas, café (cafeína), azúcar añadida, alcohol y vitaminas, y calcular rachas y logros.
 // Todo es orientativo: se estima con valores aproximados por unidad típica.
 
-import { COMUNES, AZUCAR_CUCHARADITA, CAFEINA_REFERENCIA, FRUTAS_REFERENCIA, AZUCAR_REFERENCIA } from '../datos/comunes.js';
-import { ALIMENTOS, alimentoPorId, porcionBase } from '../datos/alimentos.js';
+import { AZUCAR_CUCHARADITA, CAFEINA_REFERENCIA, FRUTAS_REFERENCIA, AZUCAR_REFERENCIA } from '../datos/comunes.js';
+import { alimentoPorId } from '../datos/alimentos.js';
 import { aMinutos } from './nutricion.js';
 import { sumarDias } from './calculos.js';
 
-export const normal = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  .replace(/(\d)[.,](\d)/g, '$1·$2')   // protege los decimales (1,5 o 1.5): "1,5 tazas" es taza y media, no 5
-  .replace(/[^a-z0-9ñ·\s-]/g, ' ').replace(/·/g, '.').replace(/\s+/g, ' ').trim();
-
-// Frutas del catálogo del plan como si fueran "comunes" (para reconocer "un guineo", "una china"…)
-const SINONIMOS_FRUTA = { naranja: ['naranja', 'naranjas', 'china', 'chinas'], lechosa: ['lechosa', 'papaya'], sandia: ['sandia', 'patilla'], guineo: ['guineo', 'guineos', 'banana', 'banano', 'platano maduro crudo'] };
-const FRUTAS_PLAN = ALIMENTOS.filter(a => a.cat === 'fruta').map(a => {
-  const g = a.unidad?.g || porcionBase(a);
-  return { id: `al_${a.id}`, alimentoId: a.id, nombre: a.nombre, icono: '🍎', cat: 'fruta', unidad: a.unidad?.n || 'porción', defecto: 1,
-    kcal: Math.round((a.kcal * g) / 100), p: Math.round((a.p * g) / 100), c: Math.round((a.c * g) / 100), g: 0, azucar: 0, cafeina: 0,
-    claves: SINONIMOS_FRUTA[a.id] || [normal(a.corto), `${normal(a.corto)}s`], porUnidad: [] };
-});
-const CATALOGO = [...COMUNES, ...FRUTAS_PLAN];
-export const porIdComun = id => CATALOGO.find(x => x.id === id);
-const CLAVES = CATALOGO.flatMap(item => item.claves.map(k => ({ k: normal(k), item }))).sort((a, b) => b.k.length - a.k.length);
-
-const NUMEROS = { un: 1, una: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, media: 0.5, medio: 0.5 };
-const numeroDe = t => (/^\d+([.,]\d+)?$/.test(t) ? Number(t.replace(',', '.')) : NUMEROS[t]);
-
-// "una pizza y una cocacola" → [{ id: 'pizza', cantidad: 2, ... }, { id: 'cola', cantidad: 1, ... }]
-export function entenderTexto(texto) {
-  const t = ` ${normal(texto)} `;
-  const usados = [];
-  const encontrados = [];
-  for (const { k, item } of CLAVES) {
-    // El espacio de delante entra en la coincidencia (iPhone con iOS 15 no entiende "(?<=…)"); el de detrás no se consume.
-    const re = new RegExp(`\\s${k.replace(/[-]/g, '\\-')}(?=\\s)`, 'g');
-    let m;
-    while ((m = re.exec(t))) {
-      const ini = m.index + 1, fin = ini + k.length;
-      if (usados.some(([a, b]) => ini < b && fin > a)) continue;
-      usados.push([ini, fin]);
-      encontrados.push({ item, ini, fin });
-    }
-  }
-  encontrados.sort((a, b) => a.ini - b.ini);
-  // "jugo de chinola": dos palabras del mismo producto muy juntas cuentan una sola vez
-  const unicos = encontrados.filter((e, i) => {
-    const prev = encontrados[i - 1];
-    return !(prev && prev.item === e.item && t.slice(prev.fin, e.ini).trim().split(' ').filter(Boolean).length <= 2);
-  });
-  return unicos.map(({ item, ini, fin }) => {
-    const antes = t.slice(0, ini).trim().split(' ').slice(-3);
-    const despues = t.slice(fin).trim().split(' ').slice(0, 3);
-    let cantidad = item.defecto;
-    let num = null, conUnidad = false;
-    for (let i = antes.length - 1; i >= 0; i--) {
-      const n = numeroDe(antes[i]);
-      if (n != null) { num = n; conUnidad = antes.slice(i + 1).some(w => item.porUnidad.includes(w)); break; }
-    }
-    if (num != null) cantidad = conUnidad || item.defecto === 1 ? num : item.defecto * num;
-    if (despues.some(w => ['entera', 'entero', 'completa', 'completo'].includes(w)) && item.entera) cantidad = item.entera * (num || 1);
-    if (despues.some(w => ['grande', 'litro', 'jumbo', 'grandes'].includes(w)) && item.grande) cantidad = Math.round(cantidad * item.grande * 10) / 10;
-    const sinAzucar = /\bsin azucar\b|\bamargo\b|\bsin dulce\b/.test(t.slice(ini, Math.min(t.length, fin + 20)));
-    return { id: item.id, cantidad, conAzucar: !!item.conAzucar && !sinAzucar };
-  });
-}
-
-// Valores de una línea { id, cantidad, conAzucar }
-export function valoresLinea(l) {
-  const item = porIdComun(l.id);
-  if (!item) return null;
-  const q = l.cantidad;
-  const azucarExtra = l.conAzucar ? 2 * AZUCAR_CUCHARADITA * q : 0;   // 2 cucharaditas por taza
-  return {
-    ...l, nombre: item.nombre, icono: item.icono, cat: item.cat, unidad: item.unidad, alimentoId: item.alimentoId || null,
-    kcal: Math.round(item.kcal * q + azucarExtra * 4), p: Math.round(item.p * q), c: Math.round(item.c * q + azucarExtra), g: Math.round(item.g * q),
-    azucar: Math.round(item.azucar * q + azucarExtra), cafeina: Math.round(item.cafeina * q), consejo: item.consejo || null,
-  };
-}
-
-export function totalesLineas(lineas) {
-  const v = lineas.map(valoresLinea).filter(Boolean);
-  return v.reduce((a, x) => ({ kcal: a.kcal + x.kcal, p: a.p + x.p, c: a.c + x.c, g: a.g + x.g, azucar: a.azucar + x.azucar, cafeina: a.cafeina + x.cafeina }),
-    { kcal: 0, p: 0, c: 0, g: 0, azucar: 0, cafeina: 0 });
-}
+// El lector de lo que se escribe ("2 huevos con pan", "media libra de pollo") vive en motor/lectorComida.js
+import { normal, entenderTexto, valoresLinea, totalesLineas, porIdComun } from './lectorComida.js';
+export { normal, entenderTexto, valoresLinea, totalesLineas, porIdComun };
 
 // ---------- Contadores del día ----------
 const PORCION_FRUTA = 120;   // g de una porción de fruta
@@ -100,7 +27,7 @@ export function contadoresDia({ comidas = [], suplementos = [], tomas = [], hora
     }
     for (const l of c.registro?.lineas || []) {
       const v = valoresLinea(l); if (!v) continue;
-      if (v.cat === 'fruta') frutas += l.cantidad;
+      if (v.cat === 'fruta') frutas += v.gramos ? v.gramos / PORCION_FRUTA : l.cantidad;   // del menú: por peso; de la calle: por unidad
       if (v.cat === 'cafe' || v.cafeina) { if (v.cat === 'cafe') tazas += l.cantidad; cafeina += v.cafeina; const h = c.registro?.horaComida || c.hora; if (v.cat === 'cafe' && (!ultimoCafe || h > ultimoCafe)) ultimoCafe = h; }
       if (v.cat === 'alcohol') alcohol += l.cantidad;
       if (v.cat === 'bebida' && v.azucar > 0) refrescos += l.cantidad;

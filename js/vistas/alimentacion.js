@@ -14,6 +14,7 @@ import {
 } from '../motor/nutricion.js';
 import { ajustarDia, COMIDO } from '../motor/ajusteDiario.js';
 import { entenderTexto, valoresLinea, totalesLineas, mensajesDia, porIdComun, alimentosEnTexto } from '../motor/seguimiento.js';
+import { cambiarCantidad } from '../motor/lectorComida.js';
 import { textoDuracion } from '../motor/recuperacion.js';
 import { BOTONES_AGUA } from '../motor/hidratacion.js';
 import { ultimaIngesta } from '../datos/habitos.js';
@@ -272,11 +273,38 @@ function tarjetaComida(m, d, { proxima = false, sinAnotar = false } = {}) {
         : '<button type="button" class="btn mini sec" data-acc="deshacer">Deshacer</button>'}
     </div>
     <form class="form-diferente" hidden novalidate>
-      ${campo({ ruta: 'texto', etiqueta: '¿Qué comiste?', placeholder: 'Por ejemplo: arroz con pollo y una cocacola' })}
-      <span class="campo-etiqueta">Cantidad aproximada</span>${chips({ ruta: 'porcion', opciones: CANTIDADES })}
+      ${campo({ ruta: 'texto', etiqueta: '¿Qué comiste? (con cantidades si las sabes)', placeholder: 'Por ejemplo: 2 huevos con pan, o media libra de pollo con una taza de arroz' })}
+      <div class="dif-entendido"></div>
+      <div class="dif-sin-reconocer"><span class="campo-etiqueta">Cantidad aproximada</span>${chips({ ruta: 'porcion', opciones: CANTIDADES })}</div>
       <div class="acciones izq"><button type="button" class="btn mini" data-acc="guardar-diferente">Guardar</button></div>
     </form>
   </article>`;
+}
+
+// "Lo que entendimos" de lo que la persona escribió, con − y + para corregir cada cantidad antes de guardar.
+// Lo usan la libreta y "Comí algo diferente". leer() da los renglones actuales; repintar() los vuelve a dibujar.
+const fmtCantidad = n => String(Math.round(n * 100) / 100).replace('.', ',');
+// "2 huevos", "2 panes", "2 porciones", "1,5 tazas" (los gramos y lo que ya va en plural se quedan igual)
+const enPlural = (n, u) => !u || n <= 1 || u === 'g' || / /.test(u) || /s$/.test(u) ? u
+  : u === 'porción' ? 'porciones' : /[aeiouáéíóú]$/.test(u) ? `${u}s` : `${u}es`;
+function htmlEntendido(lineas) {
+  if (!lineas.length) return '';
+  const tot = totalesLineas(lineas);
+  const consejos = [...new Set(lineas.map(l => valoresLinea(l)?.consejo).filter(Boolean))];
+  return `<div class="entendido"><span class="campo-etiqueta">Lo que entendimos (ajusta la cantidad)</span>
+    <ul>${lineas.map((l, i) => { const v = valoresLinea(l); return `<li><span>${v.icono} ${esc(v.nombre)}</span>
+      <span class="cantidad"><button type="button" class="btn mini sec" data-menos="${i}" aria-label="Menos">−</button><strong>${fmtCantidad(l.cantidad)}</strong> <small>${esc(enPlural(l.cantidad, v.unidad))}</small><button type="button" class="btn mini sec" data-mas="${i}" aria-label="Más">+</button></span>
+      <span class="ayuda">≈ ${v.kcal} kcal${v.gramos && v.unidad !== 'g' ? ` · ${v.gramos} g` : ''}${v.aceiteG ? ` · +${v.aceiteG} g de aceite` : ''}${v.harinaG ? ` · +${v.harinaG} g de empanizado` : ''}${Math.round(v.azucar / 4) ? ` · ${Math.round(v.azucar / 4)} ${Math.round(v.azucar / 4) === 1 ? 'cdta' : 'cdtas'} de azúcar` : ''}${v.cafeina ? ` · ${v.cafeina} mg cafeína` : ''}</span></li>`; }).join('')}</ul>
+    <p><strong>Total ≈ ${tot.kcal} kcal · ${tot.p} g proteína</strong></p>
+    ${consejos.map(c => `<p class="ayuda">💡 ${esc(c)}</p>`).join('')}</div>`;
+}
+function activarEntendido(caja, leer, repintar) {
+  caja.addEventListener('click', e => {
+    const m = e.target.closest('[data-menos]'), p = e.target.closest('[data-mas]');
+    if (!m && !p) return;
+    cambiarCantidad(leer()[(m || p).dataset[m ? 'menos' : 'mas']], !!p);
+    repintar();
+  });
 }
 
 function pestanaHoy(cont, atleta, d, cb) {
@@ -315,7 +343,19 @@ function pestanaHoy(cont, atleta, d, cb) {
     <p class="ayuda">${esc(AVISO_RELACION_COMIDA)}</p>
     ${porQueHtml('proteina')}${porQueHtml('vegetales')}${porQueHtml('carbohidratos')}`;
 
-  cont.querySelectorAll('.form-diferente').forEach(f => activarChips(f));
+  // "Comí algo diferente": lo que se va entendiendo al escribir, corregible, y es lo que se guarda
+  const entendidoDe = new Map();
+  cont.querySelectorAll('.form-diferente').forEach(f => {
+    activarChips(f);
+    const id = f.closest('[data-meal]').dataset.meal, caja = f.querySelector('.dif-entendido');
+    const repintar = () => {
+      const lineas = entendidoDe.get(id) || [];
+      caja.innerHTML = htmlEntendido(lineas);
+      f.querySelector('.dif-sin-reconocer').hidden = !!lineas.length;
+    };
+    f.querySelector('[data-ruta="texto"]').addEventListener('input', e => { entendidoDe.set(id, entenderTexto(e.target.value)); repintar(); });
+    activarEntendido(caja, () => entendidoDe.get(id) || [], repintar);
+  });
   cont.querySelector('#ir-libreta').onclick = () => cb.alPestana('libreta');
   cont.querySelector('#no-como').onclick = () => abrirNoComo(d, cb);
   cont.addEventListener('click', async e => {
@@ -329,8 +369,8 @@ function pestanaHoy(cont, atleta, d, cb) {
     if (acc === 'guardar-diferente') {
       const r = leerFormulario(art.querySelector('.form-diferente'), {});
       if (!r.texto) return aviso('Escribe qué comiste', 'error');
-      const lineas = entenderTexto(r.texto);
-      return cb.alRegistrar(meal, 'diferente', { texto: r.texto, porcion: r.porcion, ...(lineas.length ? { lineas, totales: totalesLineas(lineas) } : {}) });
+      const lineas = entendidoDe.get(meal.id) || entenderTexto(r.texto);
+      return cb.alRegistrar(meal, 'diferente', { texto: r.texto, porcion: lineas.length ? '' : r.porcion, ...(lineas.length ? { lineas, totales: totalesLineas(lineas) } : {}) });
     }
     if (acc === 'deshacer') return cb.alRegistrar(meal, 'planificada');
     // Si la comida estaba recalculada, se guarda lo que realmente se sirvió
@@ -412,7 +452,7 @@ function pestanaLibreta(cont, atleta, d, cb) {
         const vals = (c.registro?.lineas || []).map(valoresLinea).filter(Boolean);
         return `${hueco > 0 ? `<li class="lb-hueco">⏱️ ${esc(textoDuracion(hueco))} sin comer</li>` : ''}<li><span class="lb-hora">${esc(horaDe(c))}</span>
           <span class="lb-texto"><strong>${esc(que)}</strong>
-          ${vals.length ? `<span class="ayuda">${vals.map(v => `${v.icono} ${esc(v.nombre)} ×${String(v.cantidad).replace('.', ',')}`).join(' · ')} · ≈ ${c.registro.totales?.kcal ?? '—'} kcal</span>`
+          ${vals.length ? `<span class="ayuda">${vals.map(v => `${v.icono} ${fmtCantidad(v.cantidad)} ${esc(enPlural(v.cantidad, v.unidad))} de ${esc(v.nombre.toLowerCase())}`).join(' · ')} · ≈ ${c.registro.totales?.kcal ?? '—'} kcal</span>`
             : `<span class="ayuda">${extra ? '📝 Anotado por ti' : `${tipoComida(c.tipo).icono} ${esc(tipoComida(c.tipo).etiqueta)} del plan`}${c.registro?.porcion ? ` · ${esc(c.registro.porcion)}` : ''}</span>`}
           ${c.registro?.nota ? `<em class="lb-nota">${esc(c.registro.nota)}</em>` : ''}</span>
           ${extra ? `<button type="button" class="btn mini sec" data-borrar="${esc(c.id)}" aria-label="Eliminar anotación">✕</button>` : ''}</li>`;
@@ -426,24 +466,11 @@ function pestanaLibreta(cont, atleta, d, cb) {
   activarChips(f);
   let lineas = [];
   const pintar = () => {
-    const box = cont.querySelector('#entendido');
     cont.querySelector('#sin-reconocer').hidden = !!lineas.length || !f.querySelector('[data-ruta="texto"]').value.trim();
-    if (!lineas.length) { box.innerHTML = ''; return; }
-    const tot = totalesLineas(lineas);
-    const consejos = [...new Set(lineas.map(l => valoresLinea(l)?.consejo).filter(Boolean))];
-    box.innerHTML = `<div class="entendido"><span class="campo-etiqueta">Lo que entendimos (ajusta la cantidad)</span>
-      <ul>${lineas.map((l, i) => { const v = valoresLinea(l); return `<li><span>${v.icono} ${esc(v.nombre)}</span>
-        <span class="cantidad"><button type="button" class="btn mini sec" data-menos="${i}" aria-label="Menos">−</button><strong>${String(l.cantidad).replace('.', ',')}</strong> <small>${esc(v.unidad)}</small><button type="button" class="btn mini sec" data-mas="${i}" aria-label="Más">+</button></span>
-        <span class="ayuda">≈ ${v.kcal} kcal${v.azucar ? ` · ${Math.round(v.azucar / 4)} cdtas de azúcar` : ''}${v.cafeina ? ` · ${v.cafeina} mg cafeína` : ''}</span></li>`; }).join('')}</ul>
-      <p><strong>Total ≈ ${tot.kcal} kcal · ${tot.p} g proteína</strong></p>
-      ${consejos.map(c => `<p class="ayuda">💡 ${esc(c)}</p>`).join('')}</div>`;
+    cont.querySelector('#entendido').innerHTML = htmlEntendido(lineas);
   };
   f.querySelector('[data-ruta="texto"]').addEventListener('input', e => { lineas = entenderTexto(e.target.value); pintar(); });
-  cont.querySelector('#entendido').addEventListener('click', e => {
-    const m = e.target.closest('[data-menos]'), p = e.target.closest('[data-mas]');
-    if (m) { const l = lineas[m.dataset.menos]; l.cantidad = Math.max(0.5, l.cantidad - (l.cantidad > 1 ? 1 : 0.5)); pintar(); }
-    if (p) { const l = lineas[p.dataset.mas]; l.cantidad = l.cantidad < 1 ? 1 : l.cantidad + 1; pintar(); }
-  });
+  activarEntendido(cont.querySelector('#entendido'), () => lineas, pintar);
   cont.querySelector('#libreta-guardar').onclick = () => {
     const r = leerFormulario(f, {});
     if (!r.texto) return aviso('Escribe qué comiste o bebiste', 'error');

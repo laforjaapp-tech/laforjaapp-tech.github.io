@@ -36,6 +36,12 @@ export const COMUNES = [
   C('pan_salami', 'Pan con salami o jamón', '🥪', 'comida', 'unidad', 1, [380, 14, 40, 18], { claves: ['pan con salami', 'pan con jamon', 'pan con queso'] }),
   C('arroz_plato', 'Arroz blanco', '🍚', 'comida', 'taza', 1, [210, 4, 45, 1], { claves: ['arroz'] }),
   // ---------- Dulces y meriendas ----------
+  // ---------- Platos de la casa que se piden enteros ----------
+  C('ensalada', 'Ensalada verde (sin aderezo)', '🥗', 'comida', 'plato', 1, [35, 2, 7, 0], { claves: ['ensalada', 'ensaladas', 'ensalada verde', 'ensalada de lechuga'], porUnidad: ['plato', 'platos', 'porcion', 'porciones', 'taza', 'tazas'] }),
+  C('ensalada_rusa', 'Ensalada rusa (papa con mayonesa)', '🥗', 'comida', 'plato', 1, [330, 5, 25, 23], { claves: ['ensalada rusa', 'ensalada de papa', 'potato salad'], porUnidad: ['plato', 'platos', 'porcion', 'porciones', 'taza', 'tazas'],
+    consejo: 'La mayonesa es lo que más suma: sírvete media porción o cámbiala por ensalada verde.' }),
+  C('moro', 'Moro (arroz con guandules o habichuelas)', '🍚', 'comida', 'plato', 1, [420, 11, 74, 9], { claves: ['moro', 'moros'], porUnidad: ['plato', 'platos', 'porcion', 'porciones', 'taza', 'tazas'] }),
+  C('sancocho', 'Sancocho', '🍲', 'comida', 'plato', 1, [450, 28, 45, 16], { claves: ['sancocho', 'sancochito', 'sancocho de siete carnes'], porUnidad: ['plato', 'platos'] }),
   C('helado', 'Helado', '🍨', 'comida', 'bola', 2, [140, 2, 16, 7], { claves: ['helado', 'helados', 'mantecado'], porUnidad: ['bola', 'bolas'], azucar: 14 }),
   C('galletas', 'Galletas', '🍪', 'comida', 'porción (3)', 1, [150, 2, 21, 7], { claves: ['galleta', 'galletas', 'galletica', 'galleticas'], azucar: 9 }),
   C('bizcocho', 'Bizcocho, pastel o dulce', '🍰', 'comida', 'pedazo', 1, [350, 4, 50, 15], { claves: ['bizcocho', 'pastel', 'torta', 'dulce', 'dulces', 'habichuelas con dulce', 'flan'], porUnidad: ['pedazo', 'pedazos', 'porcion'], azucar: 30 }),
